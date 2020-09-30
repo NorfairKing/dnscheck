@@ -16,6 +16,7 @@ import Data.Aeson.Types as JSON
 import Data.ByteString (ByteString)
 import qualified Data.ByteString.Char8 as SB8
 import Data.IP
+import Data.Maybe
 import Data.Text (Text)
 import qualified Data.Text as T
 import qualified Data.Text.Encoding as TE
@@ -23,6 +24,7 @@ import Data.Yaml
 import GHC.Generics (Generic)
 import Network.DNS
 import Network.DNS.Lookup as DNS
+import Network.DNS.LookupRaw as DNS
 import Network.DNS.Utils as DNS
 import System.Environment
 import System.Exit
@@ -61,6 +63,9 @@ printResults ls = forM ls $ \cr ->
       putStrLn $ unwords [SB8.unpack domain, show expected, show actual]
       pure False
     ResultTXTFailed domain expected actual -> do
+      putStrLn $ unwords [SB8.unpack domain, show expected, show actual]
+      pure False
+    ResultCNAMEFailed domain expected actual -> do
       putStrLn $ unwords [SB8.unpack domain, show expected, show actual]
       pure False
     ResultOk domain -> do
@@ -102,19 +107,39 @@ checkCheck resolver c =
           if expectedValues == actualValues
             then ResultOk domain
             else ResultTXTFailed domain expectedValues actualValues
+    CheckCNAME domain expectedValues -> do
+      errOrDNSMessage <- DNS.lookupRaw resolver domain CNAME
+      pure $ case errOrDNSMessage >>= (`fromDNSMessage` parseCNAMEDNSMessage) of
+        Left err -> ResultError domain err
+        Right actualValues ->
+          if expectedValues == actualValues
+            then ResultOk domain
+            else ResultCNAMEFailed domain expectedValues actualValues
+
+parseCNAMEDNSMessage :: DNSMessage -> [Domain]
+parseCNAMEDNSMessage = mapMaybe go . answer
+  where
+    go :: ResourceRecord -> Maybe Domain
+    go ResourceRecord {..} =
+      if rrtype /= CNAME
+        then Nothing
+        else case rdata of
+          RD_CNAME d -> Just d
+          _ -> Nothing
 
 data CheckResult
-  = ResultError Domain DNSError
-  | ResultAFailed Domain [IPv4] [IPv4]
-  | ResultAAAAFailed Domain [IPv6] [IPv6]
-  | ResultMXFailed Domain [(Domain, Int)] [(Domain, Int)]
-  | ResultTXTFailed Domain [ByteString] [ByteString]
-  | ResultOk Domain
+  = ResultError !Domain !DNSError
+  | ResultAFailed !Domain ![IPv4] ![IPv4]
+  | ResultAAAAFailed !Domain ![IPv6] ![IPv6]
+  | ResultMXFailed !Domain ![(Domain, Int)] ![(Domain, Int)]
+  | ResultTXTFailed !Domain ![ByteString] ![ByteString]
+  | ResultCNAMEFailed !Domain ![Domain] ![Domain]
+  | ResultOk !Domain
   deriving (Show, Eq, Generic)
 
 data Spec
   = Spec
-      { specChecks :: [Check]
+      { specChecks :: ![Check]
       }
   deriving (Show, Eq, Generic)
 
@@ -123,10 +148,11 @@ instance FromJSON Spec where
     Spec <$> o .: "checks"
 
 data Check
-  = CheckA Domain [IPv4]
-  | CheckAAAA Domain [IPv6]
-  | CheckMX Domain [(Domain, Int)]
-  | CheckTXT Domain [ByteString]
+  = CheckA !Domain ![IPv4]
+  | CheckAAAA !Domain ![IPv6]
+  | CheckMX !Domain ![(Domain, Int)]
+  | CheckTXT !Domain ![ByteString]
+  | CheckCNAME !Domain ![Domain]
   deriving (Show, Eq, Generic)
 
 instance FromJSON IPv4 where
@@ -138,11 +164,13 @@ instance FromJSON IPv6 where
 instance FromJSON Check where
   parseJSON = withObject "Check" $ \o -> do
     t <- o .: "type"
+    domain <- parseDomain =<< o .: "domain"
     case (t :: Text) of
-      "a" -> CheckA <$> (parseDomain =<< o .: "domain") <*> singleOrList o "ip" "ips"
-      "aaaa" -> CheckAAAA <$> (parseDomain =<< o .: "domain") <*> singleOrList o "ip" "ips"
-      "mx" -> CheckMX <$> (parseDomain =<< o .: "domain") <*> (singleOrList o "value" "values" >>= parseMXValues)
-      "txt" -> CheckTXT <$> (parseDomain =<< o .: "domain") <*> (singleOrList o "value" "values" >>= parseTXTValues)
+      "a" -> CheckA domain <$> singleOrList o "ip" "ips"
+      "aaaa" -> CheckAAAA domain <$> singleOrList o "ip" "ips"
+      "mx" -> CheckMX domain <$> (singleOrList o "value" "values" >>= parseMXValues)
+      "txt" -> CheckTXT domain <$> (singleOrList o "value" "values" >>= parseTXTValues)
+      "cname" -> CheckCNAME domain <$> (singleOrList o "value" "values" >>= parseCNAMEValues)
       _ -> fail $ "Unknown dns record type: " <> T.unpack t
 
 singleOrList :: FromJSON a => Object -> Text -> Text -> Parser [a]
@@ -165,3 +193,6 @@ parseDomain = pure . DNS.normalize . TE.encodeUtf8
 
 parseTXTValues :: [Text] -> Parser [ByteString]
 parseTXTValues = pure . map TE.encodeUtf8
+
+parseCNAMEValues :: [Text] -> Parser [ByteString]
+parseCNAMEValues = pure . map TE.encodeUtf8

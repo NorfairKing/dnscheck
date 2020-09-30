@@ -10,12 +10,15 @@ checks:
   values:
     - 10 in1-smtp.messagingengine.com.
     - 20 in2-smtp.messagingengine.com.
-- type: a
-  domain: cssyd.eu
-  ip: 52.211.121.166
-- type: a
-  domain: sub.cssyd.eu # For a wildcard
-  ip: 52.211.121.166
+- type: cname
+  domain: fm1._domainkey.cs-syd.eu.
+  value: fm1.cs-syd.eu.dkim.fmhosted.com.
+- type: cname
+  domain: fm2._domainkey.cs-syd.eu.
+  value: fm2.cs-syd.eu.dkim.fmhosted.com.
+- type: cname
+  domain: fm3._domainkey.cs-syd.eu.
+  value: fm3.cs-syd.eu.dkim.fmhosted.com.
 - type: a
   domain: intray.cs-syd.eu
   ip: 52.211.121.166
@@ -36,12 +39,15 @@ checks:
 - type: txt
   domain: _amazonses.tickler.cs-syd.eu.
   value: 'P+Ge+9E5L/wGUy6M9KPA7vTVQAvoIuNysdOC5iqNcRE='
-- type: a
-  domain: smos.online
-  ip: 52.211.121.166
-- type: a
-  domain: sub.smos.online # For a wildcard
-  ip: 52.211.121.166
+- type: cname
+  domain: qltawjmtin2uzbewnv3byvtmyycbnwyj._domainkey.tickler.cs-syd.eu
+  value: qltawjmtin2uzbewnv3byvtmyycbnwyj.dkim.amazonses.com.
+- type: cname
+  domain: n2bf33d35j3koz2sob2kly4oqri5twbu._domainkey.tickler.cs-syd.eu.
+  value: n2bf33d35j3koz2sob2kly4oqri5twbu.dkim.amazonses.com.
+- type: cname
+  domain: ut4vpzkqn27k3wwb4in7du3qcsc3cm4x._domainkey.tickler.cs-syd.eu.
+  value: ut4vpzkqn27k3wwb4in7du3qcsc3cm4x.dkim.amazonses.com.
 - type: aaaa
   domain: quintus.home.cs-syd.eu
   ip: 2a02:168:6016::1:5
@@ -51,3 +57,15 @@ checks:
 - type: aaaa
   domain: nona.home.cs-syd.eu
   ip: 2a02:168:6016::1:9
+- type: a
+  domain: cssyd.eu
+  ip: 52.211.121.166
+- type: a
+  domain: sub.cssyd.eu # For a wildcard
+  ip: 52.211.121.166
+- type: a
+  domain: smos.online
+  ip: 52.211.121.166
+- type: a
+  domain: sub.smos.online # For a wildcard
+  ip: 52.211.121.166
