@@ -16,7 +16,7 @@ jobs:
         sudo rm -rf /opt
     - uses: cachix/cachix-action@releases/v6
       with:
-        name: autorecorder
+        name: dnscheck
         signingKey: '${{ secrets.CACHIX_SIGNING_KEY }}'
         extraPullNames: yamlparse
     - run: nix-build ci.nix
