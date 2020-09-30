@@ -10,9 +10,12 @@ module DNSCheck
   )
 where
 
+import Control.Applicative
 import Control.Monad
+import Data.Aeson.Types as JSON
 import qualified Data.ByteString.Char8 as SB8
 import Data.IP
+import Data.List
 import Data.Text (Text)
 import qualified Data.Text as T
 import Data.Yaml
@@ -42,27 +45,27 @@ checkCheck c = do
   rs <- makeResolvSeed defaultResolvConf
   withResolver rs $ \resolver ->
     case c of
-      CheckA domain expectedIpv4 -> do
+      CheckA domain expectedIpv4s -> do
         errOrIps <- DNS.lookupA resolver domain
         pure $ case errOrIps of
           Left err -> ResultError err
-          Right ips ->
-            if expectedIpv4 `elem` ips
+          Right actualIpv4s ->
+            if sort expectedIpv4s == sort actualIpv4s
               then ResultOk
-              else ResultAFailed domain expectedIpv4 ips
-      CheckAAAA domain expectedIpv6 -> do
+              else ResultAFailed domain expectedIpv4s actualIpv4s
+      CheckAAAA domain expectedIpv6s -> do
         errOrIps <- DNS.lookupAAAA resolver domain
         pure $ case errOrIps of
           Left err -> ResultError err
-          Right ips ->
-            if expectedIpv6 `elem` ips
+          Right actualIpv6s ->
+            if sort expectedIpv6s == sort actualIpv6s
               then ResultOk
-              else ResultAAAAFailed domain expectedIpv6 ips
+              else ResultAAAAFailed domain expectedIpv6s actualIpv6s
 
 data CheckResult
   = ResultError DNSError
-  | ResultAFailed Domain IPv4 [IPv4]
-  | ResultAAAAFailed Domain IPv6 [IPv6]
+  | ResultAFailed Domain [IPv4] [IPv4]
+  | ResultAAAAFailed Domain [IPv6] [IPv6]
   | ResultOk
   deriving (Show, Eq, Generic)
 
@@ -77,8 +80,8 @@ instance FromJSON Spec where
     Spec <$> o .: "checks"
 
 data Check
-  = CheckA Domain IPv4
-  | CheckAAAA Domain IPv6
+  = CheckA Domain [IPv4]
+  | CheckAAAA Domain [IPv6]
   deriving (Show, Eq, Generic)
 
 instance FromJSON Domain where
@@ -94,6 +97,9 @@ instance FromJSON Check where
   parseJSON = withObject "Check" $ \o -> do
     t <- o .: "type"
     case (t :: Text) of
-      "a" -> CheckA <$> o .: "domain" <*> o .: "ip"
-      "aaaa" -> CheckAAAA <$> o .: "domain" <*> o .: "ip"
+      "a" -> CheckA <$> o .: "domain" <*> singleOrList o "ip"
+      "aaaa" -> CheckAAAA <$> o .: "domain" <*> singleOrList o "ip"
       _ -> fail $ "Unknown dns record type: " <> T.unpack t
+
+singleOrList :: FromJSON a => Object -> Text -> Parser [a]
+singleOrList o k = (: []) <$> (o .: k) <|> (o .: k)

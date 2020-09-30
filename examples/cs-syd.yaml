@@ -32,3 +32,9 @@ checks:
 - type: aaaa
   domain: quintus.home.cs-syd.eu
   ip: 2a02:168:6016::1:5
+- type: aaaa
+  domain: septus.home.cs-syd.eu
+  ip: 2a02:168:6016::1:7
+- type: aaaa
+  domain: nona.home.cs-syd.eu
+  ip: 2a02:168:6016::1:9

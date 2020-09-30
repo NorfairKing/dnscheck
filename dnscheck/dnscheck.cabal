@@ -4,7 +4,7 @@ cabal-version: 1.12
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: ac4e1fa26431d7e2ddcea7a5e22fe6717a3055304bad004c2110e9646424185f
+-- hash: 4ede8542d64da0336114d6fe1d7aaa199130d4aca153ff325aa293f9f32701fa
 
 name:           dnscheck
 version:        0.0.0.0
@@ -27,7 +27,8 @@ library
   hs-source-dirs:
       src
   build-depends:
-      base >=4.7 && <5
+      aeson
+    , base >=4.7 && <5
     , bytestring
     , dns
     , iproute
