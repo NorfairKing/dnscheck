@@ -3,8 +3,32 @@ checks:
   domain: cs-syd.eu
   ip: 52.211.121.166
 - type: a
-  domain: google.com
+  domain: sub.cs-syd.eu # For a wildcard
   ip: 52.211.121.166
 - type: a
-  domain: csssssyd.eu
+  domain: cssyd.eu
   ip: 52.211.121.166
+- type: a
+  domain: sub.cssyd.eu # For a wildcard
+  ip: 52.211.121.166
+- type: a
+  domain: intray.cs-syd.eu
+  ip: 52.211.121.166
+- type: a
+  domain: sub.intray.cs-syd.eu # For a wildcard
+  ip: 52.211.121.166
+- type: a
+  domain: tickler.cs-syd.eu
+  ip: 52.211.121.166
+- type: a
+  domain: sub.tickler.cs-syd.eu # For a wildcard
+  ip: 52.211.121.166
+- type: a
+  domain: smos.online
+  ip: 52.211.121.166
+- type: a
+  domain: sub.smos.online # For a wildcard
+  ip: 52.211.121.166
+- type: aaaa
+  domain: quintus.home.cs-syd.eu
+  ip: 2a02:168:6016::1:5
