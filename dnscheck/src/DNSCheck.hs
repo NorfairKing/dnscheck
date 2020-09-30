@@ -48,8 +48,8 @@ checkSpec Spec {..} = do
     unless (and passeds) exitFailure
 
 printResults :: [CheckResult] -> IO [Bool]
-printResults ls = forM ls $ \cr ->
-  case cr of
+printResults ls = forM ls $
+  \case
     ResultError domain err -> do
       putStrLn $ unwords [SB8.unpack domain, show err]
       pure False
