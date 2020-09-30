@@ -33,6 +33,9 @@ checks:
   values:
     - 10 in1-smtp.messagingengine.com.
     - 20 in2-smtp.messagingengine.com.
+- type: txt
+  domain: _amazonses.tickler.cs-syd.eu.
+  value: 'P+Ge+9E5L/wGUy6M9KPA7vTVQAvoIuNysdOC5iqNcRE='
 - type: a
   domain: smos.online
   ip: 52.211.121.166

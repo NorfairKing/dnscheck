@@ -13,9 +13,9 @@ where
 import Control.Applicative
 import Control.Monad
 import Data.Aeson.Types as JSON
+import Data.ByteString (ByteString)
 import qualified Data.ByteString.Char8 as SB8
 import Data.IP
-import Data.List
 import Data.Text (Text)
 import qualified Data.Text as T
 import qualified Data.Text.Encoding as TE
@@ -60,6 +60,9 @@ printResults ls = forM ls $ \cr ->
     ResultMXFailed domain expected actual -> do
       putStrLn $ unwords [SB8.unpack domain, show expected, show actual]
       pure False
+    ResultTXTFailed domain expected actual -> do
+      putStrLn $ unwords [SB8.unpack domain, show expected, show actual]
+      pure False
     ResultOk domain -> do
       putStrLn $ unwords [SB8.unpack domain, "OK"]
       pure True
@@ -72,7 +75,7 @@ checkCheck resolver c =
       pure $ case errOrIps of
         Left err -> ResultError domain err
         Right actualIpv4s ->
-          if sort expectedIpv4s == sort actualIpv4s
+          if expectedIpv4s == actualIpv4s
             then ResultOk domain
             else ResultAFailed domain expectedIpv4s actualIpv4s
     CheckAAAA domain expectedIpv6s -> do
@@ -80,7 +83,7 @@ checkCheck resolver c =
       pure $ case errOrIps of
         Left err -> ResultError domain err
         Right actualIpv6s ->
-          if sort expectedIpv6s == sort actualIpv6s
+          if expectedIpv6s == actualIpv6s
             then ResultOk domain
             else ResultAAAAFailed domain expectedIpv6s actualIpv6s
     CheckMX domain expectedDomains -> do
@@ -88,15 +91,24 @@ checkCheck resolver c =
       pure $ case errOrDomains of
         Left err -> ResultError domain err
         Right actualDomains ->
-          if sort expectedDomains == sort actualDomains
+          if expectedDomains == actualDomains
             then ResultOk domain
             else ResultMXFailed domain expectedDomains actualDomains
+    CheckTXT domain expectedValues -> do
+      errOrValues <- DNS.lookupTXT resolver domain
+      pure $ case errOrValues of
+        Left err -> ResultError domain err
+        Right actualValues ->
+          if expectedValues == actualValues
+            then ResultOk domain
+            else ResultTXTFailed domain expectedValues actualValues
 
 data CheckResult
   = ResultError Domain DNSError
   | ResultAFailed Domain [IPv4] [IPv4]
   | ResultAAAAFailed Domain [IPv6] [IPv6]
   | ResultMXFailed Domain [(Domain, Int)] [(Domain, Int)]
+  | ResultTXTFailed Domain [ByteString] [ByteString]
   | ResultOk Domain
   deriving (Show, Eq, Generic)
 
@@ -114,6 +126,7 @@ data Check
   = CheckA Domain [IPv4]
   | CheckAAAA Domain [IPv6]
   | CheckMX Domain [(Domain, Int)]
+  | CheckTXT Domain [ByteString]
   deriving (Show, Eq, Generic)
 
 instance FromJSON IPv4 where
@@ -129,6 +142,7 @@ instance FromJSON Check where
       "a" -> CheckA <$> (parseDomain =<< o .: "domain") <*> singleOrList o "ip" "ips"
       "aaaa" -> CheckAAAA <$> (parseDomain =<< o .: "domain") <*> singleOrList o "ip" "ips"
       "mx" -> CheckMX <$> (parseDomain =<< o .: "domain") <*> (singleOrList o "value" "values" >>= parseMXValues)
+      "txt" -> CheckTXT <$> (parseDomain =<< o .: "domain") <*> (singleOrList o "value" "values" >>= parseTXTValues)
       _ -> fail $ "Unknown dns record type: " <> T.unpack t
 
 singleOrList :: FromJSON a => Object -> Text -> Text -> Parser [a]
@@ -148,3 +162,6 @@ parseMXValue t = case T.words t of
 
 parseDomain :: Text -> Parser Domain
 parseDomain = pure . DNS.normalize . TE.encodeUtf8
+
+parseTXTValues :: [Text] -> Parser [ByteString]
+parseTXTValues = pure . map TE.encodeUtf8
