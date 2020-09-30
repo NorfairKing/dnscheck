@@ -4,7 +4,7 @@ cabal-version: 1.12
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: 8c3c80f05c9f05e1214a334408f91bb64a1f8e11963e59dffcebeb632fa77364
+-- hash: ac4e1fa26431d7e2ddcea7a5e22fe6717a3055304bad004c2110e9646424185f
 
 name:           dnscheck
 version:        0.0.0.0
@@ -28,6 +28,11 @@ library
       src
   build-depends:
       base >=4.7 && <5
+    , bytestring
+    , dns
+    , iproute
+    , text
+    , yaml
   default-language: Haskell2010
 
 executable dnscheck

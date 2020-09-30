@@ -10,6 +10,12 @@ dependencies:
 
 library:
   source-dirs: src
+  dependencies:
+  - bytestring
+  - dns
+  - iproute
+  - text
+  - yaml
 
 executables:
   dnscheck:

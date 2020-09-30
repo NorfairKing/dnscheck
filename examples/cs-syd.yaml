@@ -1,0 +1,10 @@
+checks:
+- type: a
+  domain: cs-syd.eu
+  ip: 52.211.121.166
+- type: a
+  domain: google.com
+  ip: 52.211.121.166
+- type: a
+  domain: csssssyd.eu
+  ip: 52.211.121.166
