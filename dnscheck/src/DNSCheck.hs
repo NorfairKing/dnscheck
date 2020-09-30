@@ -18,12 +18,15 @@ import Data.IP
 import Data.List
 import Data.Text (Text)
 import qualified Data.Text as T
+import qualified Data.Text.Encoding as TE
 import Data.Yaml
 import GHC.Generics (Generic)
 import Network.DNS
 import Network.DNS.Lookup as DNS
+import Network.DNS.Utils as DNS
 import System.Environment
 import System.Exit
+import Text.Read
 
 dnsCheck :: IO ()
 dnsCheck = do
@@ -54,6 +57,9 @@ printResults ls = forM ls $ \cr ->
     ResultAAAAFailed domain expected actual -> do
       putStrLn $ unwords [SB8.unpack domain, show expected, show actual]
       pure False
+    ResultMXFailed domain expected actual -> do
+      putStrLn $ unwords [SB8.unpack domain, show expected, show actual]
+      pure False
     ResultOk domain -> do
       putStrLn $ unwords [SB8.unpack domain, "OK"]
       pure True
@@ -77,11 +83,20 @@ checkCheck resolver c =
           if sort expectedIpv6s == sort actualIpv6s
             then ResultOk domain
             else ResultAAAAFailed domain expectedIpv6s actualIpv6s
+    CheckMX domain expectedDomains -> do
+      errOrDomains <- DNS.lookupMX resolver domain
+      pure $ case errOrDomains of
+        Left err -> ResultError domain err
+        Right actualDomains ->
+          if sort expectedDomains == sort actualDomains
+            then ResultOk domain
+            else ResultMXFailed domain expectedDomains actualDomains
 
 data CheckResult
   = ResultError Domain DNSError
   | ResultAFailed Domain [IPv4] [IPv4]
   | ResultAAAAFailed Domain [IPv6] [IPv6]
+  | ResultMXFailed Domain [(Domain, Int)] [(Domain, Int)]
   | ResultOk Domain
   deriving (Show, Eq, Generic)
 
@@ -98,24 +113,38 @@ instance FromJSON Spec where
 data Check
   = CheckA Domain [IPv4]
   | CheckAAAA Domain [IPv6]
+  | CheckMX Domain [(Domain, Int)]
   deriving (Show, Eq, Generic)
 
-instance FromJSON Domain where
-  parseJSON = fmap SB8.pack . parseJSON
-
 instance FromJSON IPv4 where
-  parseJSON = fmap read . parseJSON
+  parseJSON = fmap read . parseJSON -- TODO nicer failures using readMaybe
 
 instance FromJSON IPv6 where
-  parseJSON = fmap read . parseJSON
+  parseJSON = fmap read . parseJSON -- TODO nicer failures using readMaybe
 
 instance FromJSON Check where
   parseJSON = withObject "Check" $ \o -> do
     t <- o .: "type"
     case (t :: Text) of
-      "a" -> CheckA <$> o .: "domain" <*> singleOrList o "ip"
-      "aaaa" -> CheckAAAA <$> o .: "domain" <*> singleOrList o "ip"
+      "a" -> CheckA <$> (parseDomain =<< o .: "domain") <*> singleOrList o "ip" "ips"
+      "aaaa" -> CheckAAAA <$> (parseDomain =<< o .: "domain") <*> singleOrList o "ip" "ips"
+      "mx" -> CheckMX <$> (parseDomain =<< o .: "domain") <*> (singleOrList o "value" "values" >>= parseMXValues)
       _ -> fail $ "Unknown dns record type: " <> T.unpack t
 
-singleOrList :: FromJSON a => Object -> Text -> Parser [a]
-singleOrList o k = (: []) <$> (o .: k) <|> (o .: k)
+singleOrList :: FromJSON a => Object -> Text -> Text -> Parser [a]
+singleOrList o singularKey pluralKey = (: []) <$> (o .: singularKey) <|> (o .: pluralKey)
+
+parseMXValues :: [Text] -> Parser [(Domain, Int)]
+parseMXValues = mapM parseMXValue
+
+parseMXValue :: Text -> Parser (Domain, Int)
+parseMXValue t = case T.words t of
+  [pt, dt] -> do
+    domain <- parseDomain dt
+    case readMaybe (T.unpack pt) of
+      Nothing -> fail $ unwords ["Failed to parse MX record priority:", show pt]
+      Just priority -> pure (domain, priority)
+  _ -> fail "Could not parse MX value"
+
+parseDomain :: Text -> Parser Domain
+parseDomain = pure . DNS.normalize . TE.encodeUtf8
