@@ -36,31 +36,31 @@ dnsCheck = do
 
 checkSpec :: Spec -> IO ()
 checkSpec Spec {..} = do
-  results <- mapM checkCheck specChecks
-  mapM_ print results
-  unless (all (== ResultOk) results) $ die "Some check(s) failed"
-
-checkCheck :: Check -> IO CheckResult
-checkCheck c = do
   rs <- makeResolvSeed defaultResolvConf
-  withResolver rs $ \resolver ->
-    case c of
-      CheckA domain expectedIpv4s -> do
-        errOrIps <- DNS.lookupA resolver domain
-        pure $ case errOrIps of
-          Left err -> ResultError err
-          Right actualIpv4s ->
-            if sort expectedIpv4s == sort actualIpv4s
-              then ResultOk
-              else ResultAFailed domain expectedIpv4s actualIpv4s
-      CheckAAAA domain expectedIpv6s -> do
-        errOrIps <- DNS.lookupAAAA resolver domain
-        pure $ case errOrIps of
-          Left err -> ResultError err
-          Right actualIpv6s ->
-            if sort expectedIpv6s == sort actualIpv6s
-              then ResultOk
-              else ResultAAAAFailed domain expectedIpv6s actualIpv6s
+  withResolver rs $ \resolver -> do
+    results <- mapM (checkCheck resolver) specChecks
+    mapM_ print results
+    unless (all (== ResultOk) results) $ die "Some check(s) failed"
+
+checkCheck :: Resolver -> Check -> IO CheckResult
+checkCheck resolver c =
+  case c of
+    CheckA domain expectedIpv4s -> do
+      errOrIps <- DNS.lookupA resolver domain
+      pure $ case errOrIps of
+        Left err -> ResultError err
+        Right actualIpv4s ->
+          if sort expectedIpv4s == sort actualIpv4s
+            then ResultOk
+            else ResultAFailed domain expectedIpv4s actualIpv4s
+    CheckAAAA domain expectedIpv6s -> do
+      errOrIps <- DNS.lookupAAAA resolver domain
+      pure $ case errOrIps of
+        Left err -> ResultError err
+        Right actualIpv6s ->
+          if sort expectedIpv6s == sort actualIpv6s
+            then ResultOk
+            else ResultAAAAFailed domain expectedIpv6s actualIpv6s
 
 data CheckResult
   = ResultError DNSError
