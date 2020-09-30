@@ -1,0 +1,43 @@
+cabal-version: 1.12
+
+-- This file has been generated from package.yaml by hpack version 0.33.0.
+--
+-- see: https://github.com/sol/hpack
+--
+-- hash: 8c3c80f05c9f05e1214a334408f91bb64a1f8e11963e59dffcebeb632fa77364
+
+name:           dnscheck
+version:        0.0.0.0
+homepage:       https://github.com/NorfairKing/dnscheck#readme
+bug-reports:    https://github.com/NorfairKing/dnscheck/issues
+author:         Tom Sydney Kerckhove
+maintainer:     syd@cs-syd.eu
+copyright:      Copyright (c) 2020 Tom Sydney Kerckhove
+build-type:     Simple
+
+source-repository head
+  type: git
+  location: https://github.com/NorfairKing/dnscheck
+
+library
+  exposed-modules:
+      DNSCheck
+  other-modules:
+      Paths_dnscheck
+  hs-source-dirs:
+      src
+  build-depends:
+      base >=4.7 && <5
+  default-language: Haskell2010
+
+executable dnscheck
+  main-is: Main.hs
+  other-modules:
+      Paths_dnscheck
+  hs-source-dirs:
+      app
+  ghc-options: -threaded -rtsopts -with-rtsopts=-N
+  build-depends:
+      base >=4.7 && <5
+    , dnscheck
+  default-language: Haskell2010
