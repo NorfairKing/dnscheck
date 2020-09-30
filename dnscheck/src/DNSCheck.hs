@@ -39,8 +39,24 @@ checkSpec Spec {..} = do
   rs <- makeResolvSeed defaultResolvConf
   withResolver rs $ \resolver -> do
     results <- mapM (checkCheck resolver) specChecks
-    mapM_ print results
-    unless (all (== ResultOk) results) $ die "Some check(s) failed"
+    passeds <- printResults results
+    unless (and passeds) exitFailure
+
+printResults :: [CheckResult] -> IO [Bool]
+printResults ls = forM ls $ \cr ->
+  case cr of
+    ResultError domain err -> do
+      putStrLn $ unwords [SB8.unpack domain, show err]
+      pure False
+    ResultAFailed domain expected actual -> do
+      putStrLn $ unwords [SB8.unpack domain, show expected, show actual]
+      pure False
+    ResultAAAAFailed domain expected actual -> do
+      putStrLn $ unwords [SB8.unpack domain, show expected, show actual]
+      pure False
+    ResultOk domain -> do
+      putStrLn $ unwords [SB8.unpack domain, "OK"]
+      pure True
 
 checkCheck :: Resolver -> Check -> IO CheckResult
 checkCheck resolver c =
@@ -48,25 +64,25 @@ checkCheck resolver c =
     CheckA domain expectedIpv4s -> do
       errOrIps <- DNS.lookupA resolver domain
       pure $ case errOrIps of
-        Left err -> ResultError err
+        Left err -> ResultError domain err
         Right actualIpv4s ->
           if sort expectedIpv4s == sort actualIpv4s
-            then ResultOk
+            then ResultOk domain
             else ResultAFailed domain expectedIpv4s actualIpv4s
     CheckAAAA domain expectedIpv6s -> do
       errOrIps <- DNS.lookupAAAA resolver domain
       pure $ case errOrIps of
-        Left err -> ResultError err
+        Left err -> ResultError domain err
         Right actualIpv6s ->
           if sort expectedIpv6s == sort actualIpv6s
-            then ResultOk
+            then ResultOk domain
             else ResultAAAAFailed domain expectedIpv6s actualIpv6s
 
 data CheckResult
-  = ResultError DNSError
+  = ResultError Domain DNSError
   | ResultAFailed Domain [IPv4] [IPv4]
   | ResultAAAAFailed Domain [IPv6] [IPv6]
-  | ResultOk
+  | ResultOk Domain
   deriving (Show, Eq, Generic)
 
 data Spec
