@@ -16,6 +16,7 @@ import Data.Aeson.Types as JSON
 import Data.ByteString (ByteString)
 import qualified Data.ByteString.Char8 as SB8
 import Data.IP
+import Data.List
 import Data.Maybe
 import Data.Text (Text)
 import qualified Data.Text as T
@@ -68,6 +69,9 @@ printResults ls = forM ls $
     ResultCNAMEFailed domain expected actual -> do
       putStrLn $ unwords [SB8.unpack domain, show expected, show actual]
       pure False
+    ResultNSFailed domain expected actual -> do
+      putStrLn $ unwords [SB8.unpack domain, show expected, show actual]
+      pure False
     ResultOk domain -> do
       putStrLn $ unwords [SB8.unpack domain, "OK"]
       pure True
@@ -115,6 +119,14 @@ checkCheck resolver c =
           if expectedValues == actualValues
             then ResultOk domain
             else ResultCNAMEFailed domain expectedValues actualValues
+    CheckNS domain expectedValues -> do
+      errOrValues <- DNS.lookupNS resolver domain
+      pure $ case errOrValues of
+        Left err -> ResultError domain err
+        Right actualValues ->
+          if sort expectedValues == sort actualValues
+            then ResultOk domain
+            else ResultNSFailed domain expectedValues actualValues
 
 parseCNAMEDNSMessage :: DNSMessage -> [Domain]
 parseCNAMEDNSMessage = mapMaybe go . answer
@@ -134,6 +146,7 @@ data CheckResult
   | ResultMXFailed !Domain ![(Domain, Int)] ![(Domain, Int)]
   | ResultTXTFailed !Domain ![ByteString] ![ByteString]
   | ResultCNAMEFailed !Domain ![Domain] ![Domain]
+  | ResultNSFailed !Domain ![Domain] ![Domain]
   | ResultOk !Domain
   deriving (Show, Eq, Generic)
 
@@ -153,6 +166,7 @@ data Check
   | CheckMX !Domain ![(Domain, Int)]
   | CheckTXT !Domain ![ByteString]
   | CheckCNAME !Domain ![Domain]
+  | CheckNS !Domain ![Domain]
   deriving (Show, Eq, Generic)
 
 instance FromJSON IPv4 where
@@ -171,6 +185,7 @@ instance FromJSON Check where
       "mx" -> CheckMX domain <$> (singleOrList o "value" "values" >>= parseMXValues)
       "txt" -> CheckTXT domain <$> (singleOrList o "value" "values" >>= parseTXTValues)
       "cname" -> CheckCNAME domain <$> (singleOrList o "value" "values" >>= parseCNAMEValues)
+      "ns" -> CheckNS domain <$> (singleOrList o "value" "values" >>= mapM parseDomain)
       _ -> fail $ "Unknown dns record type: " <> T.unpack t
 
 singleOrList :: FromJSON a => Object -> Text -> Text -> Parser [a]

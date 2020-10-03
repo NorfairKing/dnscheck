@@ -1,4 +1,11 @@
 checks:
+- type: ns
+  domain: cs-syd.eu
+  values:
+    - ns-1350.awsdns-40.org.
+    - ns-1621.awsdns-10.co.uk.
+    - ns-345.awsdns-43.com.
+    - ns-989.awsdns-59.net.
 - type: a
   domain: cs-syd.eu
   ip: 52.211.121.166
@@ -57,12 +64,26 @@ checks:
 - type: aaaa
   domain: nona.home.cs-syd.eu
   ip: 2a02:168:6016::1:9
+- type: ns
+  domain: cssyd.eu
+  values:
+    - ns-1379.awsdns-44.org.
+    - ns-1949.awsdns-51.co.uk.
+    - ns-417.awsdns-52.com.
+    - ns-706.awsdns-24.net.
 - type: a
   domain: cssyd.eu
   ip: 52.211.121.166
 - type: a
   domain: sub.cssyd.eu # For a wildcard
   ip: 52.211.121.166
+- type: ns
+  domain: smos.online
+  values:
+    - ns-1395.awsdns-46.org.
+    - ns-1911.awsdns-46.co.uk.
+    - ns-487.awsdns-60.com.
+    - ns-582.awsdns-08.net.
 - type: a
   domain: smos.online
   ip: 52.211.121.166
