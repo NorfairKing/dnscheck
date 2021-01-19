@@ -12,9 +12,13 @@ where
 
 import Control.Applicative
 import Control.Monad
+import Control.Monad.State
+import Control.Monad.Writer
 import Data.Aeson.Types as JSON
 import Data.ByteString (ByteString)
+import qualified Data.ByteString as SB
 import qualified Data.ByteString.Char8 as SB8
+import Data.Functor.Identity
 import Data.IP
 import Data.List
 import Data.Maybe
@@ -27,6 +31,7 @@ import Network.DNS
 import Network.DNS.Lookup as DNS
 import Network.DNS.LookupRaw as DNS
 import Network.DNS.Utils as DNS
+import Rainbow
 import System.Environment
 import System.Exit
 import Text.Read
@@ -43,38 +48,51 @@ dnsCheck = do
 checkSpec :: Spec -> IO ()
 checkSpec Spec {..} = do
   rs <- makeResolvSeed defaultResolvConf
-  withResolver rs $ \resolver -> do
+  ec <- withResolver rs $ \resolver -> do
     results <- mapM (checkCheck resolver) specChecks
-    passeds <- printResults results
-    unless (and passeds) exitFailure
+    let (ec, chunkss) = runWriter (execStateT (resultsReport results) ExitSuccess)
+    byteStringMaker <- byteStringMakerFromEnvironment
+    let bytestrings = map (chunksToByteStrings byteStringMaker) chunkss
+    forM_ bytestrings $ \bs -> do
+      mapM SB.putStr bs
+      SB8.putStrLn ""
+    pure ec
+  exitWith ec
 
-printResults :: [CheckResult] -> IO [Bool]
-printResults ls = forM ls $
-  \case
-    ResultError domain err -> do
-      putStrLn $ unwords [SB8.unpack domain, show err]
-      pure False
-    ResultAFailed domain expected actual -> do
-      putStrLn $ unwords [SB8.unpack domain, show expected, show actual]
-      pure False
-    ResultAAAAFailed domain expected actual -> do
-      putStrLn $ unwords [SB8.unpack domain, show expected, show actual]
-      pure False
-    ResultMXFailed domain expected actual -> do
-      putStrLn $ unwords [SB8.unpack domain, show expected, show actual]
-      pure False
-    ResultTXTFailed domain expected actual -> do
-      putStrLn $ unwords [SB8.unpack domain, show expected, show actual]
-      pure False
-    ResultCNAMEFailed domain expected actual -> do
-      putStrLn $ unwords [SB8.unpack domain, show expected, show actual]
-      pure False
-    ResultNSFailed domain expected actual -> do
-      putStrLn $ unwords [SB8.unpack domain, show expected, show actual]
-      pure False
-    ResultOk domain -> do
-      putStrLn $ unwords [SB8.unpack domain, "OK"]
-      pure True
+type Report = ReportM ()
+
+type ReportM a = StateT ExitCode (Writer [[Chunk]]) a
+
+resultsReport :: [CheckResult] -> Report
+resultsReport = mapM_ resultReport
+
+resultReport :: CheckResult -> Report
+resultReport cr = do
+  case cr of
+    ResultOk {} -> pure ()
+    _ -> put (ExitFailure 1)
+  let line :: [Chunk] -> Report
+      line cs = tell [intersperse (chunk " ") cs]
+      domainChunk = fore blue . chunk . TE.decodeLatin1
+      errorChunk = fore red . chunk . T.pack . show
+      showChunk :: Show a => a -> Chunk
+      showChunk = chunk . T.pack . show
+  case cr of
+    ResultError domain err ->
+      line [domainChunk domain, errorChunk err]
+    ResultAFailed domain expected actual ->
+      line [domainChunk domain, showChunk expected, showChunk actual]
+    ResultAAAAFailed domain expected actual ->
+      line [domainChunk domain, showChunk expected, showChunk actual]
+    ResultMXFailed domain expected actual ->
+      line [domainChunk domain, showChunk expected, showChunk actual]
+    ResultTXTFailed domain expected actual ->
+      line [domainChunk domain, showChunk expected, showChunk actual]
+    ResultCNAMEFailed domain expected actual ->
+      line [domainChunk domain, showChunk expected, showChunk actual]
+    ResultNSFailed domain expected actual ->
+      line [domainChunk domain, showChunk expected, showChunk actual]
+    ResultOk domain -> line [domainChunk domain, fore green $ chunk "OK"]
 
 checkCheck :: Resolver -> Check -> IO CheckResult
 checkCheck resolver c =
@@ -150,10 +168,9 @@ data CheckResult
   | ResultOk !Domain
   deriving (Show, Eq, Generic)
 
-data Spec
-  = Spec
-      { specChecks :: ![Check]
-      }
+data Spec = Spec
+  { specChecks :: ![Check]
+  }
   deriving (Show, Eq, Generic)
 
 instance FromJSON Spec where

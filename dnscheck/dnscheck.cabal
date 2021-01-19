@@ -1,10 +1,10 @@
 cabal-version: 1.12
 
--- This file has been generated from package.yaml by hpack version 0.33.0.
+-- This file has been generated from package.yaml by hpack version 0.34.3.
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: 4ede8542d64da0336114d6fe1d7aaa199130d4aca153ff325aa293f9f32701fa
+-- hash: 8d218f1eff872bba52b50ff60f3a59fc5f06ee6c28afcd7b6f2f89e5f63385be
 
 name:           dnscheck
 version:        0.0.0.0
@@ -32,6 +32,8 @@ library
     , bytestring
     , dns
     , iproute
+    , mtl
+    , rainbow
     , text
     , yaml
   default-language: Haskell2010

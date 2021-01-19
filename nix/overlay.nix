@@ -5,7 +5,7 @@ with final.haskell.lib;
 {
   dnscheck =
     failOnAllWarnings (
-      disableLibraryProfiling (final.haskellPackages.callCabal2nix "dnscheck" (final.gitignoreSource ../dnscheck) {})
+      disableLibraryProfiling (final.haskellPackages.callCabal2nixWithOptions "dnscheck" (final.gitignoreSource ../dnscheck) "--no-hpack" {})
     );
   haskellPackages =
     previous.haskellPackages.override (
