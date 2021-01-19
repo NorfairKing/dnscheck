@@ -4,7 +4,6 @@
 {-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RecordWildCards #-}
-{-# LANGUAGE TypeSynonymInstances #-}
 {-# OPTIONS_GHC -fno-warn-orphans #-}
 
 module DNSCheck
@@ -59,7 +58,7 @@ checkSpec CheckSpec {..} =
 singleCheckSpec :: Check -> TestDef '[Resolver] ()
 singleCheckSpec =
   let domainIt :: Domain -> String -> (Resolver -> IO ()) -> TestDef '[Resolver] ()
-      domainIt d s func = itWithOuter (unwords [s, show d]) func
+      domainIt d s = itWithOuter (unwords [s, show d])
       dnsError err = expectationFailure (show err)
    in \case
         CheckA domain expectedIpv4s -> domainIt domain "A" $ \resolver -> do
@@ -107,9 +106,10 @@ parseCNAMEDNSMessage = mapMaybe go . answer
           RD_CNAME d -> Just d
           _ -> Nothing
 
-data CheckSpec = CheckSpec
-  { specChecks :: ![Check]
-  }
+data CheckSpec
+  = CheckSpec
+      { specChecks :: ![Check]
+      }
   deriving (Show, Eq, Generic)
 
 instance FromJSON CheckSpec where
