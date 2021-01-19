@@ -21,7 +21,10 @@ checks:
 
 2. Run `dnscheck spec.yaml`
 
-   The exit code will be `1` if any of the specified DNS records do not match what has been looked up.
+   The exit code will be `1` if any of the specified DNS records do not match what has been looked up, and the output will look like this:
+
+   ![Example output](./example.png)
 
 
 See the 'examples' directory for more example specifications.
+

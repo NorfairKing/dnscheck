@@ -1,4 +1,6 @@
+{-# LANGUAGE DataKinds #-}
 {-# LANGUAGE DeriveGeneric #-}
+{-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RecordWildCards #-}
@@ -11,14 +13,8 @@ module DNSCheck
 where
 
 import Control.Applicative
-import Control.Monad
-import Control.Monad.State
-import Control.Monad.Writer
 import Data.Aeson.Types as JSON
 import Data.ByteString (ByteString)
-import qualified Data.ByteString as SB
-import qualified Data.ByteString.Char8 as SB8
-import Data.Functor.Identity
 import Data.IP
 import Data.List
 import Data.Maybe
@@ -31,9 +27,10 @@ import Network.DNS
 import Network.DNS.Lookup as DNS
 import Network.DNS.LookupRaw as DNS
 import Network.DNS.Utils as DNS
-import Rainbow
 import System.Environment
 import System.Exit
+import Test.Syd
+import Test.Syd.OptParse (defaultSettings)
 import Text.Read
 
 dnsCheck :: IO ()
@@ -43,153 +40,61 @@ dnsCheck = do
     [] -> die "Supply a spec file path as an argument"
     (sfp : _) -> do
       spec <- decodeFileThrow sfp
-      checkSpec spec
+      runCheckSpec spec
 
-checkSpec :: Spec -> IO ()
-checkSpec Spec {..} = do
-  rs <- makeResolvSeed defaultResolvConf
-  ec <- withResolver rs $ \resolver -> do
-    results <- mapM (checkCheck resolver) specChecks
-    let (ec, chunkss) = runWriter (execStateT (resultsReport results) ExitSuccess)
-    byteStringMaker <- byteStringMakerFromEnvironment
-    let bytestrings = map (chunksToByteStrings byteStringMaker) (completeOutput chunkss)
-    forM_ bytestrings $ \bs -> do
-      mapM SB.putStr bs
-      SB8.putStrLn ""
-    pure ec
-  exitWith ec
+runCheckSpec :: CheckSpec -> IO ()
+runCheckSpec cs =
+  sydTestWith defaultSettings (checkSpec cs)
 
-type Report = ReportM ()
+checkSpec :: CheckSpec -> Spec
+checkSpec CheckSpec {..} =
+  aroundAll
+    ( \func -> do
+        rs <- makeResolvSeed defaultResolvConf
+        withResolver rs $ \resolver ->
+          func resolver
+    )
+    $ mapM_ singleCheckSpec specChecks
 
-type ReportM a = StateT ExitCode (Writer OutputParts) a
-
-data OutputParts = OutputParts
-  { outputPartOverview :: [[Chunk]],
-    outputPartFailures :: [[Chunk]]
-  }
-  deriving (Show, Eq, Generic)
-
-instance Semigroup OutputParts where
-  op1 <> op2 =
-    OutputParts
-      { outputPartOverview = outputPartOverview op1 <> outputPartOverview op2,
-        outputPartFailures = outputPartFailures op1 <> outputPartFailures op2
-      }
-
-instance Monoid OutputParts where
-  mempty =
-    OutputParts
-      { outputPartOverview = [],
-        outputPartFailures = []
-      }
-  mappend = (<>)
-
-completeOutput :: OutputParts -> [[Chunk]]
-completeOutput OutputParts {..} =
-  concat
-    [ [[fore blue $ chunk "Overview"]],
-      outputPartOverview,
-      concat $
-        concat
-          [ [ [[fore red $ chunk "FAILURES"]],
-              outputPartFailures
-            ]
-            | not $ null outputPartFailures
-          ]
-    ]
-
-resultsReport :: [CheckResult] -> Report
-resultsReport = mapM_ resultReport
-
-resultReport :: CheckResult -> Report
-resultReport cr = do
-  case cr of
-    ResultOk {} -> pure ()
-    _ -> put (ExitFailure 1)
-  let lineChunks :: [Chunk] -> [[Chunk]]
-      lineChunks cs = [intersperse (chunk " ") cs]
-      overviewLine :: [Chunk] -> Report
-      overviewLine cs = tell (mempty {outputPartOverview = lineChunks cs})
-      failureLine :: [Chunk] -> Report
-      failureLine cs = do
-        overviewLine cs
-        tell (mempty {outputPartFailures = lineChunks cs})
-      domainChunk = fore blue . chunk . TE.decodeLatin1
-      errorChunk = fore red . chunk . T.pack . show
-      showChunk :: Show a => a -> Chunk
-      showChunk = chunk . T.pack . show
-      actualChunk :: Show a => a -> Chunk
-      actualChunk = fore red . showChunk
-      expectedChunk :: Show a => a -> Chunk
-      expectedChunk = fore green . showChunk
-  case cr of
-    ResultError domain err ->
-      failureLine [domainChunk domain, errorChunk err]
-    ResultAFailed domain expected actual ->
-      failureLine [domainChunk domain, expectedChunk expected, actualChunk actual]
-    ResultAAAAFailed domain expected actual ->
-      failureLine [domainChunk domain, expectedChunk expected, actualChunk actual]
-    ResultMXFailed domain expected actual ->
-      failureLine [domainChunk domain, expectedChunk expected, actualChunk actual]
-    ResultTXTFailed domain expected actual ->
-      failureLine [domainChunk domain, expectedChunk expected, actualChunk actual]
-    ResultCNAMEFailed domain expected actual ->
-      failureLine [domainChunk domain, expectedChunk expected, actualChunk actual]
-    ResultNSFailed domain expected actual ->
-      failureLine [domainChunk domain, expectedChunk expected, actualChunk actual]
-    ResultOk domain -> overviewLine [domainChunk domain, fore green $ chunk "OK"]
-
-checkCheck :: Resolver -> Check -> IO CheckResult
-checkCheck resolver c =
-  case c of
-    CheckA domain expectedIpv4s -> do
-      errOrIps <- DNS.lookupA resolver domain
-      pure $ case errOrIps of
-        Left err -> ResultError domain err
-        Right actualIpv4s ->
-          if expectedIpv4s == actualIpv4s
-            then ResultOk domain
-            else ResultAFailed domain expectedIpv4s actualIpv4s
-    CheckAAAA domain expectedIpv6s -> do
-      errOrIps <- DNS.lookupAAAA resolver domain
-      pure $ case errOrIps of
-        Left err -> ResultError domain err
-        Right actualIpv6s ->
-          if expectedIpv6s == actualIpv6s
-            then ResultOk domain
-            else ResultAAAAFailed domain expectedIpv6s actualIpv6s
-    CheckMX domain expectedDomains -> do
-      errOrDomains <- DNS.lookupMX resolver domain
-      pure $ case errOrDomains of
-        Left err -> ResultError domain err
-        Right actualDomains ->
-          if expectedDomains == actualDomains
-            then ResultOk domain
-            else ResultMXFailed domain expectedDomains actualDomains
-    CheckTXT domain expectedValues -> do
-      errOrValues <- DNS.lookupTXT resolver domain
-      pure $ case errOrValues of
-        Left err -> ResultError domain err
-        Right actualValues ->
-          if expectedValues == actualValues
-            then ResultOk domain
-            else ResultTXTFailed domain expectedValues actualValues
-    CheckCNAME domain expectedValues -> do
-      errOrDNSMessage <- DNS.lookupRaw resolver domain CNAME
-      pure $ case errOrDNSMessage >>= (`fromDNSMessage` parseCNAMEDNSMessage) of
-        Left err -> ResultError domain err
-        Right actualValues ->
-          if expectedValues == actualValues
-            then ResultOk domain
-            else ResultCNAMEFailed domain expectedValues actualValues
-    CheckNS domain expectedValues -> do
-      errOrValues <- DNS.lookupNS resolver domain
-      pure $ case errOrValues of
-        Left err -> ResultError domain err
-        Right actualValues ->
-          if sort expectedValues == sort actualValues
-            then ResultOk domain
-            else ResultNSFailed domain expectedValues actualValues
+singleCheckSpec :: Check -> TestDef '[Resolver] ()
+singleCheckSpec =
+  let domainIt :: Domain -> String -> (Resolver -> IO ()) -> TestDef '[Resolver] ()
+      domainIt d s func = itWithOuter (unwords [s, show d]) func
+      dnsError err = expectationFailure (show err)
+   in \case
+        CheckA domain expectedIpv4s -> domainIt domain "A" $ \resolver -> do
+          errOrIps <- DNS.lookupA resolver domain
+          case errOrIps of
+            Left err -> dnsError err
+            Right actualIpv4s -> expectedIpv4s `shouldBe` actualIpv4s
+        CheckAAAA domain expectedIpv6s -> domainIt domain "AAAA" $ \resolver -> do
+          errOrIps <- DNS.lookupAAAA resolver domain
+          case errOrIps of
+            Left err -> dnsError err
+            Right actualIpv6s -> expectedIpv6s `shouldBe` actualIpv6s
+        CheckMX domain expectedDomains -> domainIt domain "MX" $ \resolver -> do
+          errOrDomains <- DNS.lookupMX resolver domain
+          case errOrDomains of
+            Left err -> dnsError err
+            Right actualDomains ->
+              expectedDomains `shouldBe` actualDomains
+        CheckTXT domain expectedValues -> domainIt domain "TXT" $ \resolver -> do
+          errOrValues <- DNS.lookupTXT resolver domain
+          case errOrValues of
+            Left err -> dnsError err
+            Right actualValues ->
+              expectedValues `shouldBe` actualValues
+        CheckCNAME domain expectedValues -> domainIt domain "CNAME" $ \resolver -> do
+          errOrDNSMessage <- DNS.lookupRaw resolver domain CNAME
+          case errOrDNSMessage >>= (`fromDNSMessage` parseCNAMEDNSMessage) of
+            Left err -> dnsError err
+            Right actualValues ->
+              expectedValues `shouldBe` actualValues
+        CheckNS domain expectedValues -> domainIt domain "NS" $ \resolver -> do
+          errOrValues <- DNS.lookupNS resolver domain
+          case errOrValues of
+            Left err -> dnsError err
+            Right actualValues -> sort expectedValues `shouldBe` sort actualValues
 
 parseCNAMEDNSMessage :: DNSMessage -> [Domain]
 parseCNAMEDNSMessage = mapMaybe go . answer
@@ -202,25 +107,14 @@ parseCNAMEDNSMessage = mapMaybe go . answer
           RD_CNAME d -> Just d
           _ -> Nothing
 
-data CheckResult
-  = ResultError !Domain !DNSError
-  | ResultAFailed !Domain ![IPv4] ![IPv4]
-  | ResultAAAAFailed !Domain ![IPv6] ![IPv6]
-  | ResultMXFailed !Domain ![(Domain, Int)] ![(Domain, Int)]
-  | ResultTXTFailed !Domain ![ByteString] ![ByteString]
-  | ResultCNAMEFailed !Domain ![Domain] ![Domain]
-  | ResultNSFailed !Domain ![Domain] ![Domain]
-  | ResultOk !Domain
-  deriving (Show, Eq, Generic)
-
-data Spec = Spec
+data CheckSpec = CheckSpec
   { specChecks :: ![Check]
   }
   deriving (Show, Eq, Generic)
 
-instance FromJSON Spec where
-  parseJSON = withObject "Spec" $ \o ->
-    Spec <$> o .: "checks"
+instance FromJSON CheckSpec where
+  parseJSON = withObject "CheckSpec" $ \o ->
+    CheckSpec <$> o .: "checks"
 
 data Check
   = CheckA !Domain ![IPv4]

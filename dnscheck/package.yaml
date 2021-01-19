@@ -15,8 +15,7 @@ library:
   - bytestring
   - dns
   - iproute
-  - mtl
-  - rainbow
+  - sydtest
   - text
   - yaml
 
