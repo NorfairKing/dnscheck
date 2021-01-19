@@ -76,7 +76,7 @@ singleCheckSpec =
           case errOrDomains of
             Left err -> dnsError err
             Right actualDomains ->
-              expectedDomains `shouldBe` actualDomains
+              sort expectedDomains `shouldBe` sort actualDomains
         CheckTXT domain expectedValues -> domainIt domain "TXT" $ \resolver -> do
           errOrValues <- DNS.lookupTXT resolver domain
           case errOrValues of
