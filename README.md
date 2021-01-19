@@ -28,3 +28,7 @@ checks:
 
 See the 'examples' directory for more example specifications.
 
+
+## Running on NixOS
+
+Have a look at [the provided nixos module](/nix/module.nix)
