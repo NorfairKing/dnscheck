@@ -52,7 +52,7 @@ checkSpec Spec {..} = do
     results <- mapM (checkCheck resolver) specChecks
     let (ec, chunkss) = runWriter (execStateT (resultsReport results) ExitSuccess)
     byteStringMaker <- byteStringMakerFromEnvironment
-    let bytestrings = map (chunksToByteStrings byteStringMaker) chunkss
+    let bytestrings = map (chunksToByteStrings byteStringMaker) (completeOutput chunkss)
     forM_ bytestrings $ \bs -> do
       mapM SB.putStr bs
       SB8.putStrLn ""
@@ -61,7 +61,42 @@ checkSpec Spec {..} = do
 
 type Report = ReportM ()
 
-type ReportM a = StateT ExitCode (Writer [[Chunk]]) a
+type ReportM a = StateT ExitCode (Writer OutputParts) a
+
+data OutputParts = OutputParts
+  { outputPartOverview :: [[Chunk]],
+    outputPartFailures :: [[Chunk]]
+  }
+  deriving (Show, Eq, Generic)
+
+instance Semigroup OutputParts where
+  op1 <> op2 =
+    OutputParts
+      { outputPartOverview = outputPartOverview op1 <> outputPartOverview op2,
+        outputPartFailures = outputPartFailures op1 <> outputPartFailures op2
+      }
+
+instance Monoid OutputParts where
+  mempty =
+    OutputParts
+      { outputPartOverview = [],
+        outputPartFailures = []
+      }
+  mappend = (<>)
+
+completeOutput :: OutputParts -> [[Chunk]]
+completeOutput OutputParts {..} =
+  concat
+    [ [[fore blue $ chunk "Overview"]],
+      outputPartOverview,
+      concat $
+        concat
+          [ [ [[fore red $ chunk "FAILURES"]],
+              outputPartFailures
+            ]
+            | not $ null outputPartFailures
+          ]
+    ]
 
 resultsReport :: [CheckResult] -> Report
 resultsReport = mapM_ resultReport
@@ -71,28 +106,38 @@ resultReport cr = do
   case cr of
     ResultOk {} -> pure ()
     _ -> put (ExitFailure 1)
-  let line :: [Chunk] -> Report
-      line cs = tell [intersperse (chunk " ") cs]
+  let lineChunks :: [Chunk] -> [[Chunk]]
+      lineChunks cs = [intersperse (chunk " ") cs]
+      overviewLine :: [Chunk] -> Report
+      overviewLine cs = tell (mempty {outputPartOverview = lineChunks cs})
+      failureLine :: [Chunk] -> Report
+      failureLine cs = do
+        overviewLine cs
+        tell (mempty {outputPartFailures = lineChunks cs})
       domainChunk = fore blue . chunk . TE.decodeLatin1
       errorChunk = fore red . chunk . T.pack . show
       showChunk :: Show a => a -> Chunk
       showChunk = chunk . T.pack . show
+      actualChunk :: Show a => a -> Chunk
+      actualChunk = fore red . showChunk
+      expectedChunk :: Show a => a -> Chunk
+      expectedChunk = fore green . showChunk
   case cr of
     ResultError domain err ->
-      line [domainChunk domain, errorChunk err]
+      failureLine [domainChunk domain, errorChunk err]
     ResultAFailed domain expected actual ->
-      line [domainChunk domain, showChunk expected, showChunk actual]
+      failureLine [domainChunk domain, expectedChunk expected, actualChunk actual]
     ResultAAAAFailed domain expected actual ->
-      line [domainChunk domain, showChunk expected, showChunk actual]
+      failureLine [domainChunk domain, expectedChunk expected, actualChunk actual]
     ResultMXFailed domain expected actual ->
-      line [domainChunk domain, showChunk expected, showChunk actual]
+      failureLine [domainChunk domain, expectedChunk expected, actualChunk actual]
     ResultTXTFailed domain expected actual ->
-      line [domainChunk domain, showChunk expected, showChunk actual]
+      failureLine [domainChunk domain, expectedChunk expected, actualChunk actual]
     ResultCNAMEFailed domain expected actual ->
-      line [domainChunk domain, showChunk expected, showChunk actual]
+      failureLine [domainChunk domain, expectedChunk expected, actualChunk actual]
     ResultNSFailed domain expected actual ->
-      line [domainChunk domain, showChunk expected, showChunk actual]
-    ResultOk domain -> line [domainChunk domain, fore green $ chunk "OK"]
+      failureLine [domainChunk domain, expectedChunk expected, actualChunk actual]
+    ResultOk domain -> overviewLine [domainChunk domain, fore green $ chunk "OK"]
 
 checkCheck :: Resolver -> Check -> IO CheckResult
 checkCheck resolver c =
