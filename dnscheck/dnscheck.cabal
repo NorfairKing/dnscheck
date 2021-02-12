@@ -4,7 +4,7 @@ cabal-version: 1.12
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: 6b91990f84f9c54115dc04657f4c7e2ed4c58ca82334850768100656bb4776c6
+-- hash: cc209d58e5c6821e9024e88fc5fdaa1b0f5b81999a52bd76020cae513882774c
 
 name:           dnscheck
 version:        0.0.0.0
@@ -32,6 +32,7 @@ library
     , bytestring
     , dns
     , iproute
+    , retry
     , sydtest
     , text
     , yaml

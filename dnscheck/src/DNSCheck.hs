@@ -12,6 +12,7 @@ module DNSCheck
 where
 
 import Control.Applicative
+import Control.Retry
 import Data.Aeson.Types as JSON
 import Data.ByteString (ByteString)
 import Data.IP
@@ -62,38 +63,53 @@ singleCheckSpec =
       dnsError err = expectationFailure (show err)
    in \case
         CheckA domain expectedIpv4s -> domainIt domain "A" $ \resolver -> do
-          errOrIps <- DNS.lookupA resolver domain
+          errOrIps <- retryDNS $ DNS.lookupA resolver domain
           case errOrIps of
             Left err -> dnsError err
             Right actualIpv4s -> expectedIpv4s `shouldBe` actualIpv4s
         CheckAAAA domain expectedIpv6s -> domainIt domain "AAAA" $ \resolver -> do
-          errOrIps <- DNS.lookupAAAA resolver domain
+          errOrIps <- retryDNS $ DNS.lookupAAAA resolver domain
           case errOrIps of
             Left err -> dnsError err
             Right actualIpv6s -> expectedIpv6s `shouldBe` actualIpv6s
         CheckMX domain expectedDomains -> domainIt domain "MX" $ \resolver -> do
-          errOrDomains <- DNS.lookupMX resolver domain
+          errOrDomains <- retryDNS $ DNS.lookupMX resolver domain
           case errOrDomains of
             Left err -> dnsError err
             Right actualDomains ->
               sort expectedDomains `shouldBe` sort actualDomains
         CheckTXT domain expectedValues -> domainIt domain "TXT" $ \resolver -> do
-          errOrValues <- DNS.lookupTXT resolver domain
+          errOrValues <- retryDNS $ DNS.lookupTXT resolver domain
           case errOrValues of
             Left err -> dnsError err
             Right actualValues ->
               expectedValues `shouldBe` actualValues
         CheckCNAME domain expectedValues -> domainIt domain "CNAME" $ \resolver -> do
-          errOrDNSMessage <- DNS.lookupRaw resolver domain CNAME
+          errOrDNSMessage <- retryDNS $ DNS.lookupRaw resolver domain CNAME
           case errOrDNSMessage >>= (`fromDNSMessage` parseCNAMEDNSMessage) of
             Left err -> dnsError err
             Right actualValues ->
               expectedValues `shouldBe` actualValues
         CheckNS domain expectedValues -> domainIt domain "NS" $ \resolver -> do
-          errOrValues <- DNS.lookupNS resolver domain
+          errOrValues <- retryDNS $ DNS.lookupNS resolver domain
           case errOrValues of
             Left err -> dnsError err
             Right actualValues -> sort expectedValues `shouldBe` sort actualValues
+
+retryDNS :: IO (Either DNSError a) -> IO (Either DNSError a)
+retryDNS action = retrying policy (\_ e -> pure (couldBeFlaky e)) (const action)
+  where
+    couldBeFlaky (Left e) = case e of
+      RetryLimitExceeded -> True
+      TimeoutExpired -> True
+      ServerFailure -> True
+      NameError -> True
+      NetworkFailure _ -> True
+      DecodeError _ -> True
+      UnknownDNSError -> True
+      _ -> False
+    couldBeFlaky _ = False
+    policy = exponentialBackoff 100 <> limitRetries 10
 
 parseCNAMEDNSMessage :: DNSMessage -> [Domain]
 parseCNAMEDNSMessage = mapMaybe go . answer

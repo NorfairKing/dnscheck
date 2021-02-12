@@ -15,6 +15,7 @@ library:
   - bytestring
   - dns
   - iproute
+  - retry
   - sydtest
   - text
   - yaml
