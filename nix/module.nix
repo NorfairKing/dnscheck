@@ -22,9 +22,6 @@ let
     path = with pkgs; [
       dnscheck
     ];
-    serviceConfig = {
-      User = "syd";
-    };
     script = ''
       set +e # We need error codes to work this way.
 

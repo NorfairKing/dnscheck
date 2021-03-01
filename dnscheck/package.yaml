@@ -15,10 +15,13 @@ library:
   - bytestring
   - dns
   - iproute
+  - path
+  - path-io
   - retry
   - sydtest
   - text
   - yaml
+  - yamlparse-applicative
 
 executables:
   dnscheck:

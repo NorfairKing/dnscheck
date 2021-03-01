@@ -2,6 +2,7 @@
 {-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE LambdaCase #-}
+{-# LANGUAGE NumericUnderscores #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RecordWildCards #-}
 {-# OPTIONS_GHC -fno-warn-orphans #-}
@@ -11,27 +12,29 @@ module DNSCheck
   )
 where
 
-import Control.Applicative
 import Control.Retry
-import Data.Aeson.Types as JSON
 import Data.ByteString (ByteString)
+import Data.Foldable
 import Data.IP
 import Data.List
 import Data.Maybe
 import Data.Text (Text)
 import qualified Data.Text as T
 import qualified Data.Text.Encoding as TE
-import Data.Yaml
+import Data.Yaml (FromJSON (..))
 import GHC.Generics (Generic)
 import Network.DNS
 import Network.DNS.Lookup as DNS
 import Network.DNS.LookupRaw as DNS
 import Network.DNS.Utils as DNS
+import Path
+import Path.IO
 import System.Environment
 import System.Exit
 import Test.Syd
 import Test.Syd.OptParse (defaultSettings)
 import Text.Read
+import YamlParse.Applicative
 
 dnsCheck :: IO ()
 dnsCheck = do
@@ -39,8 +42,11 @@ dnsCheck = do
   case args of
     [] -> die "Supply a spec file path as an argument"
     (sfp : _) -> do
-      spec <- decodeFileThrow sfp
-      runCheckSpec spec
+      afp <- resolveFile' sfp
+      mspec <- readConfigFile afp
+      case mspec of
+        Nothing -> die $ "Spec file not found: " <> fromAbsFile afp
+        Just spec -> runCheckSpec spec
 
 runCheckSpec :: CheckSpec -> IO ()
 runCheckSpec cs =
@@ -54,13 +60,17 @@ checkSpec CheckSpec {..} =
         withResolver rs $ \resolver ->
           func resolver
     )
-    $ mapM_ singleCheckSpec specChecks
+    $ mapM_ (singleCheckSpec specRetryPolicy) specChecks
 
-singleCheckSpec :: Check -> TestDef '[Resolver] ()
-singleCheckSpec =
+singleCheckSpec ::
+  RetryPolicySpec ->
+  Check ->
+  TestDef '[Resolver] ()
+singleCheckSpec retryPolicySpec =
   let domainIt :: Domain -> String -> (Resolver -> IO ()) -> TestDef '[Resolver] ()
       domainIt d s = itWithOuter (unwords [s, show d])
       dnsError err = expectationFailure (show err)
+      retryDNS = retryDNSWithPolicy retryPolicySpec
    in \case
         CheckA domain expectedIpv4s -> domainIt domain "A" $ \resolver -> do
           errOrIps <- retryDNS $ DNS.lookupA resolver domain
@@ -96,8 +106,15 @@ singleCheckSpec =
             Left err -> dnsError err
             Right actualValues -> sort expectedValues `shouldBe` sort actualValues
 
-retryDNS :: IO (Either DNSError a) -> IO (Either DNSError a)
-retryDNS action = retrying policy (\_ e -> pure (couldBeFlaky e)) (const action)
+retryDNSWithPolicy ::
+  RetryPolicySpec ->
+  IO (Either DNSError a) ->
+  IO (Either DNSError a)
+retryDNSWithPolicy retryPolicySpec action =
+  retrying
+    (retryPolicySpecToRetryPolicy retryPolicySpec)
+    (\_ e -> pure (couldBeFlaky e))
+    (const action)
   where
     couldBeFlaky (Left e) = case e of
       RetryLimitExceeded -> True
@@ -109,7 +126,6 @@ retryDNS action = retrying policy (\_ e -> pure (couldBeFlaky e)) (const action)
       UnknownDNSError -> True
       _ -> False
     couldBeFlaky _ = False
-    policy = exponentialBackoff 100 <> limitRetries 10
 
 parseCNAMEDNSMessage :: DNSMessage -> [Domain]
 parseCNAMEDNSMessage = mapMaybe go . answer
@@ -124,13 +140,51 @@ parseCNAMEDNSMessage = mapMaybe go . answer
 
 data CheckSpec
   = CheckSpec
-      { specChecks :: ![Check]
+      { specRetryPolicy :: !RetryPolicySpec,
+        specChecks :: ![Check]
       }
   deriving (Show, Eq, Generic)
 
 instance FromJSON CheckSpec where
-  parseJSON = withObject "CheckSpec" $ \o ->
-    CheckSpec <$> o .: "checks"
+  parseJSON = viaYamlSchema
+
+instance YamlSchema CheckSpec where
+  yamlSchema =
+    objectParser "CheckSpec" $
+      CheckSpec
+        <$> optionalFieldWithDefault "retry-policy" defaultRetryPolicySpec "The retry policy for flaky checks due to network failures etc"
+        <*> requiredField "checks" "The checks to perform"
+
+data RetryPolicySpec
+  = RetryPolicySpec
+      { retryPolicySpecMaxRetries :: !Word,
+        retryPolicySpecBaseDelay :: !Word
+      }
+  deriving (Show, Eq, Generic)
+
+instance FromJSON RetryPolicySpec where
+  parseJSON = viaYamlSchema
+
+instance YamlSchema RetryPolicySpec where
+  yamlSchema =
+    objectParser "RetryPolicySpec" $
+      RetryPolicySpec
+        <$> optionalFieldWithDefault "max-retries" (retryPolicySpecMaxRetries defaultRetryPolicySpec) "The maximum number of retries"
+        <*> optionalFieldWithDefault "base-delay" (retryPolicySpecBaseDelay defaultRetryPolicySpec) "The delay between the first and second try, in microseconds"
+
+defaultRetryPolicySpec :: RetryPolicySpec
+defaultRetryPolicySpec =
+  RetryPolicySpec
+    { retryPolicySpecMaxRetries = 10,
+      retryPolicySpecBaseDelay = 100_000 -- 100 ms
+    }
+
+retryPolicySpecToRetryPolicy :: RetryPolicySpec -> RetryPolicyM IO
+retryPolicySpecToRetryPolicy RetryPolicySpec {..} =
+  mconcat
+    [ exponentialBackoff $ fromIntegral retryPolicySpecBaseDelay,
+      limitRetries $ fromIntegral retryPolicySpecMaxRetries
+    ]
 
 data Check
   = CheckA !Domain ![IPv4]
@@ -148,38 +202,62 @@ instance FromJSON IPv6 where
   parseJSON = fmap read . parseJSON -- TODO nicer failures using readMaybe
 
 instance FromJSON Check where
-  parseJSON = withObject "Check" $ \o -> do
-    t <- o .: "type"
-    domain <- parseDomain =<< o .: "domain"
-    case (t :: Text) of
-      "a" -> CheckA domain <$> singleOrList o "ip" "ips"
-      "aaaa" -> CheckAAAA domain <$> singleOrList o "ip" "ips"
-      "mx" -> CheckMX domain <$> (singleOrList o "value" "values" >>= parseMXValues)
-      "txt" -> CheckTXT domain <$> (singleOrList o "value" "values" >>= parseTXTValues)
-      "cname" -> CheckCNAME domain <$> (singleOrList o "value" "values" >>= parseCNAMEValues)
-      "ns" -> CheckNS domain <$> (singleOrList o "value" "values" >>= mapM parseDomain)
-      _ -> fail $ "Unknown dns record type: " <> T.unpack t
+  parseJSON = viaYamlSchema
 
-singleOrList :: FromJSON a => Object -> Text -> Text -> Parser [a]
-singleOrList o singularKey pluralKey = (: []) <$> (o .: singularKey) <|> (o .: pluralKey)
+instance YamlSchema Check where
+  yamlSchema =
+    objectParser "Check" $
+      alternatives
+        [ (CheckA <$ typeField "a")
+            <*> domainField
+            <*> singleOrListFieldWith
+              "ip"
+              "ips"
+              viaRead,
+          (CheckAAAA <$ typeField "aaaa")
+            <*> domainField
+            <*> singleOrListFieldWith "ip" "ips" viaRead,
+          (CheckMX <$ typeField "mx")
+            <*> domainField
+            <*> singleOrListFieldWith "value" "values" (eitherParser parseMXValue yamlSchema),
+          (CheckTXT <$ typeField "txt")
+            <*> domainField
+            <*> singleOrListFieldWith "value" "values" (parseTXTValue <$> yamlSchema),
+          (CheckCNAME <$ typeField "cname")
+            <*> domainField
+            <*> singleOrListFieldWith "value" "values" (parseCNAMEValue <$> yamlSchema),
+          (CheckNS <$ typeField "ns")
+            <*> domainField
+            <*> singleOrListFieldWith "value" "values" (parseDomain <$> yamlSchema)
+        ]
 
-parseMXValues :: [Text] -> Parser [(Domain, Int)]
-parseMXValues = mapM parseMXValue
+typeField :: Text -> ObjectParser Text
+typeField typeName = requiredFieldWith' "type" (literalString typeName)
 
-parseMXValue :: Text -> Parser (Domain, Int)
+domainField :: ObjectParser Domain
+domainField = requiredFieldWith "domain" "The domain" (parseDomain <$> yamlSchema)
+
+singleOrListFieldWith :: Text -> Text -> YamlParser a -> ObjectParser [a]
+singleOrListFieldWith singleKey listKey par =
+  alternatives
+    [ (: []) <$> requiredFieldWith' singleKey par,
+      requiredFieldWith' listKey (toList <$> ParseArray Nothing (ParseList par))
+    ]
+
+parseMXValue :: Text -> Either String (Domain, Int)
 parseMXValue t = case T.words t of
   [pt, dt] -> do
-    domain <- parseDomain dt
+    let domain = parseDomain dt
     case readMaybe (T.unpack pt) of
-      Nothing -> fail $ unwords ["Failed to parse MX record priority:", show pt]
+      Nothing -> Left $ unwords ["Failed to parse MX record priority:", show pt]
       Just priority -> pure (domain, priority)
-  _ -> fail "Could not parse MX value"
+  _ -> Left "Could not parse MX value"
 
-parseDomain :: Text -> Parser Domain
-parseDomain = pure . DNS.normalize . TE.encodeUtf8
+parseDomain :: Text -> Domain
+parseDomain = DNS.normalize . TE.encodeUtf8
 
-parseTXTValues :: [Text] -> Parser [ByteString]
-parseTXTValues = pure . map TE.encodeUtf8
+parseTXTValue :: Text -> ByteString
+parseTXTValue = TE.encodeUtf8
 
-parseCNAMEValues :: [Text] -> Parser [ByteString]
-parseCNAMEValues = pure . map TE.encodeUtf8
+parseCNAMEValue :: Text -> ByteString
+parseCNAMEValue = TE.encodeUtf8
