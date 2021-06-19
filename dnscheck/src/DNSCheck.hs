@@ -76,35 +76,35 @@ singleCheckSpec retryPolicySpec =
           errOrIps <- retryDNS $ DNS.lookupA resolver domain
           case errOrIps of
             Left err -> dnsError err
-            Right actualIpv4s -> expectedIpv4s `shouldBe` actualIpv4s
+            Right actualIpv4s -> actualIpv4s `shouldBe` expectedIpv4s
         CheckAAAA domain expectedIpv6s -> domainIt domain "AAAA" $ \resolver -> do
           errOrIps <- retryDNS $ DNS.lookupAAAA resolver domain
           case errOrIps of
             Left err -> dnsError err
-            Right actualIpv6s -> expectedIpv6s `shouldBe` actualIpv6s
+            Right actualIpv6s -> actualIpv6s `shouldBe` expectedIpv6s
         CheckMX domain expectedDomains -> domainIt domain "MX" $ \resolver -> do
           errOrDomains <- retryDNS $ DNS.lookupMX resolver domain
           case errOrDomains of
             Left err -> dnsError err
             Right actualDomains ->
-              sort expectedDomains `shouldBe` sort actualDomains
+              sort actualDomains `shouldBe` sort expectedDomains
         CheckTXT domain expectedValues -> domainIt domain "TXT" $ \resolver -> do
           errOrValues <- retryDNS $ DNS.lookupTXT resolver domain
           case errOrValues of
             Left err -> dnsError err
             Right actualValues ->
-              expectedValues `shouldBe` actualValues
+              actualValues `shouldBe` expectedValues
         CheckCNAME domain expectedValues -> domainIt domain "CNAME" $ \resolver -> do
           errOrDNSMessage <- retryDNS $ DNS.lookupRaw resolver domain CNAME
           case errOrDNSMessage >>= (`fromDNSMessage` parseCNAMEDNSMessage) of
             Left err -> dnsError err
             Right actualValues ->
-              expectedValues `shouldBe` actualValues
+              actualValues `shouldBe` expectedValues
         CheckNS domain expectedValues -> domainIt domain "NS" $ \resolver -> do
           errOrValues <- retryDNS $ DNS.lookupNS resolver domain
           case errOrValues of
             Left err -> dnsError err
-            Right actualValues -> sort expectedValues `shouldBe` sort actualValues
+            Right actualValues -> sort actualValues `shouldBe` sort expectedValues
 
 retryDNSWithPolicy ::
   RetryPolicySpec ->
