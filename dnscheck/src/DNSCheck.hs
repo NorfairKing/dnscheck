@@ -15,7 +15,6 @@ import Autodocodec
 import Autodocodec.Yaml
 import Control.Retry
 import Data.ByteString (ByteString)
-import qualified Data.ByteString as SB
 import Data.IP
 import Data.List
 import Data.Maybe
@@ -30,6 +29,7 @@ import GHC.Generics (Generic)
 import Network.DNS
 import Network.DNS.Lookup as DNS
 import Network.DNS.LookupRaw as DNS
+import Network.DNS.Utils as DNS
 import Path
 import Path.IO
 import System.Environment
@@ -218,6 +218,11 @@ instance HasCodec Check where
         CheckCNAME cnameCheck -> Right (Left (Right cnameCheck))
         CheckNS nsCheck -> Right (Right nsCheck)
 
+validateDomain :: Domain -> Validation
+validateDomain domain =
+  declare "The domain is normalised" $
+    parseDomain (renderDomain domain) == domain
+
 data ACheck = ACheck
   { aCheckDomain :: !Domain,
     aCheckAddresses :: ![IPv4]
@@ -229,7 +234,7 @@ instance Validity ACheck where
   validate aCheck@ACheck {..} =
     mconcat
       [ genericValidate aCheck,
-        declare "The domain can roundtrip" $ parseDomain (renderDomain aCheckDomain) == aCheckDomain
+        validateDomain aCheckDomain
       ]
 
 instance HasCodec ACheck where
@@ -256,20 +261,25 @@ instance HasCodec IPv4 where
       codec
 
 data AAAACheck = AAAACheck
-  { ipv6CheckDomain :: !Domain,
-    ipv6CheckAddresses :: ![IPv6]
+  { aaaaCheckDomain :: !Domain,
+    aaaaCheckAddresses :: ![IPv6]
   }
   deriving stock (Show, Eq, Generic)
   deriving (FromJSON, ToJSON) via (Autodocodec AAAACheck)
 
-instance Validity AAAACheck
+instance Validity AAAACheck where
+  validate aaaaCheck@AAAACheck {..} =
+    mconcat
+      [ genericValidate aaaaCheck,
+        validateDomain aaaaCheckDomain
+      ]
 
 instance HasCodec AAAACheck where
   codec =
     object "AAAACheck" $
       typeField "aaaa" AAAACheck
-        <*> domainField .= ipv6CheckDomain
-        <*> singleOrListField "ip" "ips" "ipv6 addresses" .= ipv6CheckAddresses
+        <*> domainField .= aaaaCheckDomain
+        <*> singleOrListField "ip" "ips" "ipv6 addresses" .= aaaaCheckAddresses
 
 instance Validity IPv6
 
@@ -314,7 +324,7 @@ instance Validity MXValue where
   validate mxValue@MXValue {..} =
     mconcat
       [ genericValidate mxValue,
-        declare "the domain is nonempty" $ not $ SB.null mxValueDomain
+        validateDomain mxValueDomain
       ]
 
 instance HasCodec MXValue where
@@ -343,7 +353,12 @@ data TXTCheck = TXTCheck
   deriving stock (Show, Eq, Generic)
   deriving (FromJSON, ToJSON) via (Autodocodec TXTCheck)
 
-instance Validity TXTCheck
+instance Validity TXTCheck where
+  validate txtCheck@TXTCheck {..} =
+    mconcat
+      [ genericValidate txtCheck,
+        validateDomain txtCheckDomain
+      ]
 
 instance HasCodec TXTCheck where
   codec =
@@ -359,7 +374,13 @@ data CNAMECheck = CNAMECheck
   deriving stock (Show, Eq, Generic)
   deriving (FromJSON, ToJSON) via (Autodocodec CNAMECheck)
 
-instance Validity CNAMECheck
+instance Validity CNAMECheck where
+  validate cnameCheck@CNAMECheck {..} =
+    mconcat
+      [ genericValidate cnameCheck,
+        validateDomain cnameCheckDomain,
+        decorateList cnameCheckAddresses validateDomain
+      ]
 
 instance HasCodec CNAMECheck where
   codec =
@@ -375,7 +396,13 @@ data NSCheck = NSCheck
   deriving stock (Show, Eq, Generic)
   deriving (FromJSON, ToJSON) via (Autodocodec NSCheck)
 
-instance Validity NSCheck
+instance Validity NSCheck where
+  validate nsCheck@NSCheck {..} =
+    mconcat
+      [ genericValidate nsCheck,
+        validateDomain nsCheckDomain,
+        decorateList nsCheckAddresses validateDomain
+      ]
 
 instance HasCodec NSCheck where
   codec =
@@ -416,9 +443,7 @@ domainCodec :: JSONCodec Domain
 domainCodec = dimapCodec parseDomain renderDomain codec
 
 parseDomain :: Text -> Domain
-parseDomain =
-  -- DNS.normalize    .
-  TE.encodeUtf8
+parseDomain = DNS.normalize . TE.encodeUtf8
 
 renderDomain :: Domain -> Text
 renderDomain = TE.decodeUtf8With TE.lenientDecode

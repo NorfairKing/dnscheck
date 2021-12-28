@@ -8,7 +8,6 @@ import Data.GenValidity.ByteString ()
 import Data.GenValidity.Text
 import Data.IP
 import qualified Data.Text as T
-import qualified Data.Text.Encoding as TE
 import Network.DNS
 import Test.QuickCheck
 import Test.Syd
@@ -70,7 +69,7 @@ instance GenValid CheckSpec
 
 genValidDomain :: Gen Domain
 genValidDomain =
-  TE.encodeUtf8
+  parseDomain
     <$> genTextBy
       ( oneof
           [ choose ('a', 'z'),
@@ -81,6 +80,10 @@ genValidDomain =
 
 spec :: Spec
 spec = do
+  describe "genValidDomain" $
+    it "produces valid domains" $
+      forAll genValidDomain $ \domain ->
+        validationIsValid (validateDomain domain)
   jsonSpec @IPv4
   genValidSpec @IPv4
   jsonSpec @IPv6
