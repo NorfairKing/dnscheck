@@ -1,21 +1,15 @@
+{ sources ? import ./sources.nix
+}:
 let
-  pkgsv = import (import ./nixpkgs.nix);
-  yamlparse-applicative-overlay =
-    import (
-      builtins.fetchGit (import ./yamlparse-applicative-version.nix) + "/nix/overlay.nix"
-    );
-  sydtest-overlay =
-    import (
-      builtins.fetchGit (import ./sydtest-version.nix) + "/nix/overlay.nix"
-    );
-
+  pkgsv = import sources.nixpkgs;
 in
 pkgsv {
   overlays =
     [
-      yamlparse-applicative-overlay
-      sydtest-overlay
-      (import ./gitignore-src.nix)
+      (import (sources.autodocodec + "/nix/overlay.nix"))
+      (import (sources.sydtest + "/nix/overlay.nix"))
+      (import (sources.validity + "/nix/overlay.nix"))
+      (final: previous: { inherit (import sources.gitignore { inherit (final) lib; }) gitignoreSource; })
       (import ./overlay.nix)
     ];
   config.allowUnfree = true;

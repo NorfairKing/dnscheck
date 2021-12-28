@@ -40,7 +40,7 @@ in
   options.services.dns-checker = {
     enable = mkEnableOption "DNS Checker";
     checks = mkOption {
-      default = [];
+      default = [ ];
       type = types.listOf (
         types.submodule {
           options = {
@@ -57,7 +57,7 @@ in
             values = mkOption {
               type = types.listOf types.str;
               example = [ "52.211.121.166" ];
-              default = [];
+              default = [ ];
               description = "The value to expect in the dns response";
             };
           };
