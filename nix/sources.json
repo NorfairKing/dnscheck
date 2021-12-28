@@ -5,10 +5,10 @@
         "homepage": "",
         "owner": "NorfairKing",
         "repo": "autodocodec",
-        "rev": "4525db2587a79c9643279158ee992536d2ae3b71",
-        "sha256": "10nks493npki7ll2apk92kg2vgg3b6rmqnxwjfr0vxch7lg6h6kq",
+        "rev": "9880ec062f1166bdac50b8eb59c6dd010bc9af0c",
+        "sha256": "1i4wq6rqdw40x1i4xy4qia6nzwrq4xpj1h805qg4i4svm6ggcmpw",
         "type": "tarball",
-        "url": "https://github.com/NorfairKing/autodocodec/archive/4525db2587a79c9643279158ee992536d2ae3b71.tar.gz",
+        "url": "https://github.com/NorfairKing/autodocodec/archive/9880ec062f1166bdac50b8eb59c6dd010bc9af0c.tar.gz",
         "url_template": "https://github.com/<owner>/<repo>/archive/<rev>.tar.gz"
     },
     "gitignore": {
