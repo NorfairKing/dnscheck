@@ -2,10 +2,7 @@ final: previous:
 with final.lib;
 with final.haskell.lib;
 
-let dnscheck =
-  buildStrictly (
-    disableLibraryProfiling (final.haskellPackages.callCabal2nixWithOptions "dnscheck" (final.gitignoreSource ../dnscheck) "--no-hpack" { })
-  );
+let dnscheck = buildStrictly (final.haskellPackages.callCabal2nixWithOptions "dnscheck" (final.gitignoreSource ../dnscheck) "--no-hpack" { });
 in
 {
   dnscheck = justStaticExecutables dnscheck;
@@ -15,10 +12,9 @@ in
       {
         overrides =
           final.lib.composeExtensions (old.overrides or (_: _: { })) (
-            self: super:
-              {
-                inherit dnscheck;
-              }
+            self: super: {
+              inherit dnscheck;
+            }
           );
       }
     );

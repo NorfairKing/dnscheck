@@ -1,19 +1,19 @@
-resolver: lts-18.16
+resolver: lts-19.6
 packages:
 - dnscheck
 extra-deps:
 - github: NorfairKing/sydtest
-  commit: 127362d7e48d9b983f61e358966af71003f95026
+  commit: cf1bb414f0c0ce7bbf64659da94b8cd890c9e536
   subdirs:
     - sydtest
 - github: NorfairKing/autodocodec
-  commit: 9880ec062f1166bdac50b8eb59c6dd010bc9af0c
+  commit: a60fbd4db121c0529f9ceb68c58c289daa693db2
   subdirs:
     - autodocodec
     - autodocodec-schema
     - autodocodec-yaml
 - github: NorfairKing/validity
-  commit: 466bb2f140e62cae0d4fe3770681c3d74e99cf40
+  commit: d88be911a7e2a84f6c089e9269aaed8d10a74acd
   subdirs:
     - genvalidity
     - genvalidity-aeson
