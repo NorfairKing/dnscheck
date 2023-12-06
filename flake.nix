@@ -5,7 +5,7 @@
     extra-trusted-public-keys = "dnscheck.cachix.org-1:dJSRH3SurLpWrwRLtx4nbxDvZT4dBgeB5NUxWg68HTY=";
   };
   inputs = {
-    nixpkgs.url = "github:NixOS/nixpkgs?ref=nixos-23.05";
+    nixpkgs.url = "github:NixOS/nixpkgs?ref=nixos-23.11";
     pre-commit-hooks.url = "github:cachix/pre-commit-hooks.nix";
     validity.url = "github:NorfairKing/validity";
     validity.flake = false;
@@ -13,6 +13,8 @@
     autodocodec.flake = false;
     safe-coloured-text.url = "github:NorfairKing/safe-coloured-text";
     safe-coloured-text.flake = false;
+    fast-myers-diff.url = "github:NorfairKing/fast-myers-diff";
+    fast-myers-diff.flake = false;
     sydtest.url = "github:NorfairKing/sydtest";
     sydtest.flake = false;
   };
@@ -22,6 +24,7 @@
     , pre-commit-hooks
     , validity
     , safe-coloured-text
+    , fast-myers-diff
     , sydtest
     , autodocodec
     }:
@@ -34,6 +37,7 @@
           self.overlays.${system}
           (import (autodocodec + "/nix/overlay.nix"))
           (import (safe-coloured-text + "/nix/overlay.nix"))
+          (import (fast-myers-diff + "/nix/overlay.nix"))
           (import (sydtest + "/nix/overlay.nix"))
           (import (validity + "/nix/overlay.nix"))
         ];

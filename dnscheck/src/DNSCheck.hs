@@ -62,7 +62,8 @@ checkSpec CheckSpec {..} =
         withResolver rs $ \resolver ->
           func resolver
     )
-    $ doNotRandomiseExecutionOrder $ mapM_ (singleCheckSpec specRetryPolicy) specChecks
+    $ doNotRandomiseExecutionOrder
+    $ mapM_ (singleCheckSpec specRetryPolicy) specChecks
 
 singleCheckSpec ::
   RetryPolicySpec ->
