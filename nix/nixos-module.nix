@@ -24,7 +24,13 @@ with lib;
               type = types.listOf types.str;
               example = [ "52.211.121.166" ];
               default = [ ];
-              description = "The value to expect in the dns response";
+              description = "The value to expect in the DNS response";
+            };
+            ips = mkOption {
+              type = types.listOf types.str;
+              example = [ "52.211.121.166" ];
+              default = [ ];
+              description = "The IPs to expect in the DNS response of an a record";
             };
           };
         }
