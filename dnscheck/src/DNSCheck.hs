@@ -423,7 +423,7 @@ domainField =
     (dimapCodec parseDomain (TE.decodeUtf8With TE.lenientDecode) codec)
     "domain"
 
-singleOrListField :: HasCodec a => Text -> Text -> Text -> JSONObjectCodec [a]
+singleOrListField :: (HasCodec a) => Text -> Text -> Text -> JSONObjectCodec [a]
 singleOrListField singleKey listKey = singleOrListFieldWith singleKey listKey codec
 
 singleOrListFieldWith :: Text -> Text -> JSONCodec a -> Text -> JSONObjectCodec [a]
