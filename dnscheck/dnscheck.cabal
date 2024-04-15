@@ -4,7 +4,7 @@ cabal-version: 1.12
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: 9b9125c4e1eb16d8dffac7ba1d6542c79ab57293eabb98c2ea9ed84e7a2fb87d
+-- hash: 836875a6be76f566da4462ddcf8a3188e8d078eee3f9c00c1f039cc5089266c7
 
 name:           dnscheck
 version:        0.0.0.0
@@ -31,7 +31,6 @@ library
     , autodocodec
     , autodocodec-yaml
     , base >=4.7 && <5
-    , bytestring
     , dns
     , iproute
     , path
@@ -40,7 +39,6 @@ library
     , sydtest
     , text
     , validity
-    , validity-bytestring
     , yaml
   default-language: Haskell2010
 

@@ -7,6 +7,8 @@
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs?ref=nixos-23.11";
     pre-commit-hooks.url = "github:cachix/pre-commit-hooks.nix";
+    weeder-nix.url = "github:NorfairKing/weeder-nix";
+    weeder-nix.flake = false;
     validity.url = "github:NorfairKing/validity";
     validity.flake = false;
     autodocodec.url = "github:NorfairKing/autodocodec";
@@ -22,6 +24,7 @@
     { self
     , nixpkgs
     , pre-commit-hooks
+    , weeder-nix
     , validity
     , safe-coloured-text
     , fast-myers-diff
@@ -40,6 +43,7 @@
           (import (fast-myers-diff + "/nix/overlay.nix"))
           (import (sydtest + "/nix/overlay.nix"))
           (import (validity + "/nix/overlay.nix"))
+          (import (weeder-nix + "/nix/overlay.nix"))
         ];
       };
       pkgs = pkgsFor nixpkgs;
@@ -52,6 +56,10 @@
         nixos-module-test = import ./nix/nixos-module-test.nix {
           inherit pkgs;
           dnscheck-nixos-module = self.nixosModules.${system}.default;
+        };
+        weeder-check = pkgs.weeder-nix.makeWeederCheck {
+          weederToml = ./weeder.toml;
+          packages = [ "dnscheck" ];
         };
         pre-commit = pre-commit-hooks.lib.${system}.run {
           src = ./.;

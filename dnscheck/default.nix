@@ -1,8 +1,8 @@
-{ mkDerivation, aeson, autodocodec, autodocodec-yaml, base
-, bytestring, dns, genvalidity-bytestring, genvalidity-sydtest
+{ mkDerivation, aeson, autodocodec, autodocodec-yaml, base, dns
+, genvalidity-bytestring, genvalidity-sydtest
 , genvalidity-sydtest-aeson, genvalidity-text, iproute, lib, path
 , path-io, QuickCheck, retry, sydtest, sydtest-discover, text
-, validity, validity-bytestring, yaml
+, validity, yaml
 }:
 mkDerivation {
   pname = "dnscheck";
@@ -11,8 +11,8 @@ mkDerivation {
   isLibrary = true;
   isExecutable = true;
   libraryHaskellDepends = [
-    aeson autodocodec autodocodec-yaml base bytestring dns iproute path
-    path-io retry sydtest text validity validity-bytestring yaml
+    aeson autodocodec autodocodec-yaml base dns iproute path path-io
+    retry sydtest text validity yaml
   ];
   executableHaskellDepends = [ base ];
   testHaskellDepends = [

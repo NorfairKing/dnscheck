@@ -14,7 +14,6 @@ library:
   - aeson
   - autodocodec
   - autodocodec-yaml
-  - bytestring
   - dns
   - iproute
   - path
@@ -23,7 +22,6 @@ library:
   - sydtest
   - text
   - validity
-  - validity-bytestring
   - yaml
 
 executables:

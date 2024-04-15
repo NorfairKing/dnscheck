@@ -14,7 +14,6 @@ module DNSCheck where
 import Autodocodec
 import Autodocodec.Yaml
 import Control.Retry
-import Data.ByteString (ByteString)
 import Data.IP
 import Data.List
 import Data.Maybe
@@ -23,7 +22,6 @@ import qualified Data.Text as T
 import qualified Data.Text.Encoding as TE
 import qualified Data.Text.Encoding.Error as TE
 import Data.Validity
-import Data.Validity.ByteString ()
 import Data.Yaml (FromJSON, ToJSON)
 import GHC.Generics (Generic)
 import Network.DNS
@@ -448,6 +446,3 @@ parseDomain = DNS.normalize . TE.encodeUtf8
 
 renderDomain :: Domain -> Text
 renderDomain = TE.decodeUtf8With TE.lenientDecode
-
-bytestringTextValueCodec :: JSONCodec ByteString
-bytestringTextValueCodec = dimapCodec TE.encodeUtf8 (TE.decodeUtf8With TE.lenientDecode) codec
