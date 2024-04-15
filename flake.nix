@@ -33,7 +33,7 @@
     }:
     let
       system = "x86_64-linux";
-      pkgsFor = nixpkgs: import nixpkgs {
+      pkgs = import nixpkgs {
         inherit system;
         config.allowUnfree = true;
         overlays = [
@@ -46,11 +46,14 @@
           (import (weeder-nix + "/nix/overlay.nix"))
         ];
       };
-      pkgs = pkgsFor nixpkgs;
+      pkgsMusl = pkgs.pkgsMusl;
     in
     {
       overlays.${system} = import ./nix/overlay.nix;
-      packages.${system}.default = pkgs.dnscheck;
+      packages.${system} = {
+        default = pkgs.dnscheck;
+        static = pkgsMusl.dnscheck;
+      };
       checks.${system} = {
         release = self.packages.${system}.default;
         nixos-module-test = import ./nix/nixos-module-test.nix {
@@ -75,9 +78,7 @@
       };
       devShells.${system}.default = pkgs.haskellPackages.shellFor {
         name = "dnscheck-shell";
-        packages = (p:
-          [ p.dnscheck ]
-        );
+        packages = p: [ p.dnscheck ];
         withHoogle = true;
         doBenchmark = true;
         buildInputs = (with pkgs; [
@@ -93,6 +94,6 @@
           ]);
         shellHook = self.checks.${system}.pre-commit.shellHook;
       };
-      nixosModules.${system}.default = import ./nix/nixos-module.nix { dnscheck = pkgs.dnscheck; };
+      nixosModules.${system}.default = import ./nix/nixos-module.nix { dnscheck = self.packages.${system}.static; };
     };
 }
