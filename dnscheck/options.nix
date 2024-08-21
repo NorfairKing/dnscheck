@@ -11,12 +11,14 @@ lib.types.submodule {
               type = lib.types.str;
             };
             ip = lib.mkOption {
+              default = null;
               description = "a addresses";
-              type = lib.types.str;
+              type = lib.types.nullOr lib.types.str;
             };
             ips = lib.mkOption {
+              default = null;
               description = "a addresses";
-              type = lib.types.listOf lib.types.str;
+              type = lib.types.nullOr (lib.types.listOf lib.types.str);
             };
             type = lib.mkOption {
               type = lib.types.enum ["a"];
@@ -30,12 +32,14 @@ lib.types.submodule {
               type = lib.types.str;
             };
             ip = lib.mkOption {
+              default = null;
               description = "ipv6 addresses";
-              type = lib.types.str;
+              type = lib.types.nullOr lib.types.str;
             };
             ips = lib.mkOption {
+              default = null;
               description = "ipv6 addresses";
-              type = lib.types.listOf lib.types.str;
+              type = lib.types.nullOr (lib.types.listOf lib.types.str);
             };
             type = lib.mkOption {
               type = lib.types.enum ["aaaa"];
@@ -52,12 +56,14 @@ lib.types.submodule {
               type = lib.types.enum ["mx"];
             };
             value = lib.mkOption {
+              default = null;
               description = "values: domain and priority";
-              type = lib.types.str;
+              type = lib.types.nullOr lib.types.str;
             };
             values = lib.mkOption {
+              default = null;
               description = "values: domain and priority";
-              type = lib.types.listOf lib.types.str;
+              type = lib.types.nullOr (lib.types.listOf lib.types.str);
             };
           };
         })
@@ -71,12 +77,14 @@ lib.types.submodule {
               type = lib.types.enum ["txt"];
             };
             value = lib.mkOption {
+              default = null;
               description = "text values";
-              type = lib.types.str;
+              type = lib.types.nullOr lib.types.str;
             };
             values = lib.mkOption {
+              default = null;
               description = "text values";
-              type = lib.types.listOf lib.types.str;
+              type = lib.types.nullOr (lib.types.listOf lib.types.str);
             };
           };
         })
@@ -90,12 +98,14 @@ lib.types.submodule {
               type = lib.types.enum ["cname"];
             };
             value = lib.mkOption {
+              default = null;
               description = "domains";
-              type = lib.types.str;
+              type = lib.types.nullOr lib.types.str;
             };
             values = lib.mkOption {
+              default = null;
               description = "domains";
-              type = lib.types.listOf lib.types.str;
+              type = lib.types.nullOr (lib.types.listOf lib.types.str);
             };
           };
         })
@@ -109,12 +119,14 @@ lib.types.submodule {
               type = lib.types.enum ["ns"];
             };
             value = lib.mkOption {
+              default = null;
               description = "domains";
-              type = lib.types.str;
+              type = lib.types.nullOr lib.types.str;
             };
             values = lib.mkOption {
+              default = null;
               description = "domains";
-              type = lib.types.listOf lib.types.str;
+              type = lib.types.nullOr (lib.types.listOf lib.types.str);
             };
           };
         })
