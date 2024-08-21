@@ -5,14 +5,19 @@ author: "Tom Sydney Kerckhove"
 maintainer: "syd@cs-syd.eu"
 copyright: "Copyright (c) 2020-2022 Tom Sydney Kerckhove"
 
+extra-source-files:
+- options.nix
+
 dependencies:
 - base >= 4.7 && < 5
+
 
 library:
   source-dirs: src
   dependencies:
   - aeson
   - autodocodec
+  - autodocodec-nix
   - autodocodec-yaml
   - dns
   - iproute
@@ -48,6 +53,7 @@ tests:
     - -with-rtsopts=-N
     dependencies:
     - QuickCheck
+    - autodocodec-nix
     - dns
     - dnscheck
     - genvalidity-bytestring

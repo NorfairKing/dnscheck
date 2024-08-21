@@ -3,6 +3,7 @@
 
 module DNSCheckSpec (spec) where
 
+import Autodocodec.Nix
 import DNSCheck
 import Data.GenValidity.ByteString ()
 import Data.GenValidity.Text
@@ -80,6 +81,10 @@ genValidDomain =
 
 spec :: Spec
 spec = do
+  describe "Specification" $
+    it "outputs the same nix options" $
+      pureGoldenTextFile "options.nix" $
+        renderNixOptionTypeViaCodec @CheckSpec
   describe "genValidDomain" $
     it "produces valid domains" $
       forAll genValidDomain $ \domain ->

@@ -4,7 +4,7 @@ cabal-version: 1.12
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: 836875a6be76f566da4462ddcf8a3188e8d078eee3f9c00c1f039cc5089266c7
+-- hash: 9dacd5aa3ee7e6c7546ce3d945af0ca6383601ac5880f286640e3b6000e88913
 
 name:           dnscheck
 version:        0.0.0.0
@@ -14,6 +14,8 @@ author:         Tom Sydney Kerckhove
 maintainer:     syd@cs-syd.eu
 copyright:      Copyright (c) 2020-2022 Tom Sydney Kerckhove
 build-type:     Simple
+extra-source-files:
+    options.nix
 
 source-repository head
   type: git
@@ -29,6 +31,7 @@ library
   build-depends:
       aeson
     , autodocodec
+    , autodocodec-nix
     , autodocodec-yaml
     , base >=4.7 && <5
     , dns
@@ -67,6 +70,7 @@ test-suite dnscheck-test
       sydtest-discover:sydtest-discover
   build-depends:
       QuickCheck
+    , autodocodec-nix
     , base >=4.7 && <5
     , dns
     , dnscheck

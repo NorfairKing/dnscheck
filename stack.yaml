@@ -1,6 +1,22 @@
 resolver: lts-22.22
 packages:
 - dnscheck
+extra-deps:
+- github: NorfairKing/safe-coloured-text
+  commit: 046f10147a058c00c2706d98c341219e3cbc7669
+  subdirs:
+    - safe-coloured-text
+    - safe-coloured-text-layout
+    - safe-coloured-text-terminfo
+
+- github: NorfairKing/autodocodec
+  commit: 7b67f8c46876136fe99e1f326afbd22d8c388109
+  subdirs:
+    - autodocodec
+    - autodocodec-nix
+    - autodocodec-schema
+    - autodocodec-yaml
+
 system-ghc: true
 nix:
   enable: false

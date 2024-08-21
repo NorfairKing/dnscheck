@@ -19,6 +19,8 @@
     fast-myers-diff.flake = false;
     sydtest.url = "github:NorfairKing/sydtest";
     sydtest.flake = false;
+    opt-env-conf.url = "github:NorfairKing/opt-env-conf";
+    opt-env-conf.flake = false;
   };
   outputs =
     { self
@@ -29,6 +31,7 @@
     , safe-coloured-text
     , fast-myers-diff
     , sydtest
+    , opt-env-conf
     , autodocodec
     }:
     let
@@ -42,6 +45,7 @@
           (import (safe-coloured-text + "/nix/overlay.nix"))
           (import (fast-myers-diff + "/nix/overlay.nix"))
           (import (sydtest + "/nix/overlay.nix"))
+          (import (opt-env-conf + "/nix/overlay.nix"))
           (import (validity + "/nix/overlay.nix"))
           (import (weeder-nix + "/nix/overlay.nix"))
         ];
@@ -71,7 +75,10 @@
             hpack.enable = true;
             ormolu.enable = true;
             nixpkgs-fmt.enable = true;
-            nixpkgs-fmt.excludes = [ ".*/default.nix" ];
+            nixpkgs-fmt.excludes = [
+              ".*/default.nix"
+              "dnscheck/options.nix"
+            ];
             cabal2nix.enable = true;
           };
         };
@@ -87,6 +94,8 @@
         ] ++ self.checks.${system}.pre-commit.enabledPackages;
         shellHook = self.checks.${system}.pre-commit.shellHook;
       };
-      nixosModules.${system}.default = import ./nix/nixos-module.nix { dnscheck = self.packages.${system}.static; };
+      nixosModules.${system}.default = import ./nix/nixos-module.nix {
+        inherit (pkgsMusl) dnscheck;
+      };
     };
 }

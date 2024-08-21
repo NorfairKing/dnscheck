@@ -153,7 +153,7 @@ instance HasCodec CheckSpec where
   codec =
     object "CheckSpec" $
       CheckSpec
-        <$> optionalFieldWithDefault "retry-policy" defaultRetryPolicySpec "The retry policy for flaky checks due to network failures etc" .= specRetryPolicy
+        <$> optionalFieldOrNullWithOmittedDefault "retry-policy" defaultRetryPolicySpec "The retry policy for flaky checks due to network failures etc" .= specRetryPolicy
         <*> requiredField "checks" "The checks to perform" .= specChecks
 
 data RetryPolicySpec = RetryPolicySpec
@@ -169,8 +169,8 @@ instance HasCodec RetryPolicySpec where
   codec =
     object "RetryPolicySpec" $
       RetryPolicySpec
-        <$> optionalFieldWithDefault "max-retries" (retryPolicySpecMaxRetries defaultRetryPolicySpec) "The maximum number of retries" .= retryPolicySpecMaxRetries
-        <*> optionalFieldWithDefault "base-delay" (retryPolicySpecBaseDelay defaultRetryPolicySpec) "The delay between the first and second try, in microseconds" .= retryPolicySpecBaseDelay
+        <$> optionalFieldOrNullWithOmittedDefault "max-retries" (retryPolicySpecMaxRetries defaultRetryPolicySpec) "The maximum number of retries" .= retryPolicySpecMaxRetries
+        <*> optionalFieldOrNullWithOmittedDefault "base-delay" (retryPolicySpecBaseDelay defaultRetryPolicySpec) "The delay between the first and second try, in microseconds" .= retryPolicySpecBaseDelay
 
 defaultRetryPolicySpec :: RetryPolicySpec
 defaultRetryPolicySpec =
