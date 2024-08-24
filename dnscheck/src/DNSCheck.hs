@@ -33,24 +33,22 @@ import Path.IO
 import System.Environment
 import System.Exit
 import Test.Syd
-import Test.Syd.OptParse (defaultSettings)
 import Text.Read
 
 dnsCheck :: IO ()
 dnsCheck = do
   args <- getArgs
   case args of
-    [] -> die "Supply a spec file path as an argument"
-    (sfp : _) -> do
+    [] -> die "Usage: dnscheck <configfile>"
+    (sfp : restArgs) -> do
       afp <- resolveFile' sfp
       mspec <- readYamlConfigFile afp
       case mspec of
         Nothing -> die $ "Spec file not found: " <> fromAbsFile afp
-        Just spec -> runCheckSpec spec
+        Just spec -> withArgs restArgs $ runCheckSpec spec
 
 runCheckSpec :: CheckSpec -> IO ()
-runCheckSpec cs =
-  sydTestWith defaultSettings (checkSpec cs)
+runCheckSpec cs = sydTest (checkSpec cs)
 
 checkSpec :: CheckSpec -> Spec
 checkSpec CheckSpec {..} =
