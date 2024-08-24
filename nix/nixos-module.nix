@@ -11,7 +11,9 @@ with lib;
   options.services.dnscheck = {
     enable = mkEnableOption "DNS Checker";
     config = mkOption {
-      type = import ../dnscheck/options.nix { inherit lib; };
+      # Turned off type-checking until this type-checking bug is fixed:
+      # https://github.com/NixOS/nixpkgs/issues/337108
+      # type = import ../dnscheck/options.nix { inherit lib; };
     };
     onCalendar = mkOption {
       type = types.str;
