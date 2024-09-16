@@ -55,11 +55,14 @@
     {
       overlays.${system} = import ./nix/overlay.nix;
       packages.${system} = {
-        default = pkgs.dnscheck;
+        default = self.packages.${system}.dynamic;
+        dynamic = pkgs.dnscheck;
         static = pkgsMusl.dnscheck;
       };
       checks.${system} = {
         release = self.packages.${system}.default;
+        dynamic = self.packages.${system}.dynamic;
+        static = self.packages.${system}.static;
         nixos-module-test = import ./nix/nixos-module-test.nix {
           inherit pkgs;
           dnscheck-nixos-module = self.nixosModules.${system}.default;
@@ -94,8 +97,10 @@
         ] ++ self.checks.${system}.pre-commit.enabledPackages;
         shellHook = self.checks.${system}.pre-commit.shellHook;
       };
-      nixosModules.${system}.default = import ./nix/nixos-module.nix {
-        inherit (pkgsMusl) dnscheck;
+      nixosModules.${system} = {
+        default = self.nixosModules.${system}.dynamic;
+        static = import ./nix/nixos-module.nix { dnscheck = self.packages.${system}.static; };
+        dynamic = import ./nix/nixos-module.nix { dnscheck = self.packages.${system}.dynamic; };
       };
     };
 }
