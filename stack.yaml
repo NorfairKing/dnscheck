@@ -1,21 +1,6 @@
-resolver: lts-22.39
+resolver: lts-23.19
 packages:
 - dnscheck
-extra-deps:
-- github: NorfairKing/safe-coloured-text
-  commit: 046f10147a058c00c2706d98c341219e3cbc7669
-  subdirs:
-    - safe-coloured-text
-    - safe-coloured-text-layout
-    - safe-coloured-text-terminfo
-
-- github: NorfairKing/autodocodec
-  commit: f19887d136fe3504361e6cb38ae62b17940c3f75
-  subdirs:
-    - autodocodec
-    - autodocodec-nix
-    - autodocodec-schema
-    - autodocodec-yaml
 
 system-ghc: true
 nix:
