@@ -1,7 +1,7 @@
 { pkgs
 , dnscheck-nixos-module
 }:
-pkgs.nixosTest (
+pkgs.testers.runNixOSTest (
   { lib, pkgs, ... }: {
     name = "dnscheck-module-test";
     nodes.machine = {
