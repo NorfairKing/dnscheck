@@ -1,5 +1,7 @@
 # DNSCheck
 
+[![NixCI](https://staging.nix-ci.com/badge/gh:NorfairKing:dnscheck)](https://staging.nix-ci.com/gh:NorfairKing:dnscheck)
+
 A declarative DNS checker to run continuously for monitoring.
 
 This way you can make sure that you've set your DNS records correctly, and that they do not somehow disappear.
