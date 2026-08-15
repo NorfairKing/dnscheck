@@ -8,6 +8,7 @@ import DNSCheck
 import Data.GenValidity.ByteString ()
 import Data.GenValidity.Text
 import Data.IP
+import Data.Text (Text)
 import qualified Data.Text as T
 import Network.DNS
 import Test.QuickCheck
@@ -89,6 +90,11 @@ spec = do
     it "produces valid domains" $
       forAll genValidDomain $ \domain ->
         validationIsValid (validateDomain domain)
+  describe "rrSetShouldBe" $
+    it "accepts the expected records in any order" $
+      forAllValid $ \expecteds ->
+        forAll (shuffle (expecteds :: [Text])) $ \actuals ->
+          actuals `rrSetShouldBe` expecteds
   jsonSpec @IPv4
   genValidSpec @IPv4
   jsonSpec @IPv6

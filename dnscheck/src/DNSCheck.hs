@@ -24,6 +24,7 @@ import qualified Data.Text.Encoding.Error as TE
 import Data.Validity
 import Data.Yaml (FromJSON, ToJSON)
 import GHC.Generics (Generic)
+import GHC.Stack (HasCallStack)
 import Network.DNS
 import Network.DNS.Lookup as DNS
 import Network.DNS.LookupRaw as DNS
@@ -73,24 +74,24 @@ singleCheckSpec retryPolicySpec =
           errOrIps <- retryDNS $ DNS.lookupA resolver domain
           case errOrIps of
             Left err -> dnsError err
-            Right actualIpv4s -> actualIpv4s `shouldBe` expectedIpv4s
+            Right actualIpv4s -> actualIpv4s `rrSetShouldBe` expectedIpv4s
         CheckIPv6 (AAAACheck domain expectedIpv6s) -> domainIt domain "AAAA" $ \resolver -> do
           errOrIps <- retryDNS $ DNS.lookupAAAA resolver domain
           case errOrIps of
             Left err -> dnsError err
-            Right actualIpv6s -> actualIpv6s `shouldBe` expectedIpv6s
+            Right actualIpv6s -> actualIpv6s `rrSetShouldBe` expectedIpv6s
         CheckMX (MXCheck domain expectedDomains) -> domainIt domain "MX" $ \resolver -> do
           errOrDomains <- retryDNS $ DNS.lookupMX resolver domain
           case errOrDomains of
             Left err -> dnsError err
             Right actualDomains ->
-              sort (map (uncurry $ flip MXValue) actualDomains) `shouldBe` sort expectedDomains
+              map (uncurry $ flip MXValue) actualDomains `rrSetShouldBe` expectedDomains
         CheckTXT (TXTCheck domain expectedValues) -> domainIt domain "TXT" $ \resolver -> do
           errOrValues <- retryDNS $ DNS.lookupTXT resolver domain
           case errOrValues of
             Left err -> dnsError err
             Right actualValues ->
-              actualValues `shouldBe` map TE.encodeUtf8 expectedValues
+              actualValues `rrSetShouldBe` map TE.encodeUtf8 expectedValues
         CheckCNAME (CNAMECheck domain expectedValues) -> domainIt domain "CNAME" $ \resolver -> do
           errOrDNSMessage <- retryDNS $ DNS.lookupRaw resolver domain CNAME
           case errOrDNSMessage >>= (`fromDNSMessage` parseCNAMEDNSMessage) of
@@ -101,10 +102,21 @@ singleCheckSpec retryPolicySpec =
           errOrValues <- retryDNS $ DNS.lookupNS resolver domain
           case errOrValues of
             Left err -> dnsError err
-            Right actualValues -> sort actualValues `shouldBe` sort expectedValues
+            Right actualValues -> actualValues `rrSetShouldBe` expectedValues
 
 domainIt :: Domain -> String -> (Resolver -> IO ()) -> TestDef '[Resolver] ()
 domainIt d s = itWithOuter (unwords [s, show d])
+
+-- | Assert that a looked-up RRset consists of exactly the expected records.
+--
+-- Records within an RRset have no defined order (RFC 2181, section 5), so a
+-- resolver may return them in a different order on every query.  Caching
+-- resolvers in particular hand out whatever order they happened to store,
+-- which changes each time the cache entry is refilled.  Comparing records in
+-- the order they arrive therefore makes any check of a name with more than one
+-- record fail intermittently.
+rrSetShouldBe :: (HasCallStack, Show a, Ord a) => [a] -> [a] -> IO ()
+rrSetShouldBe actuals expecteds = sort actuals `shouldBe` sort expecteds
 
 retryDNSWithPolicy ::
   RetryPolicySpec ->
